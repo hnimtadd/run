@@ -4,4 +4,7 @@ build:
 run: build
 	@ ./bin/main
 
-.PHONY: build run
+gen:
+	@ cd proto && buf generate
+
+.PHONY: build run gen
