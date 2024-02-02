@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hnimtadd/run/core/errors"
+	"github.com/hnimtadd/run/internal/errors"
 )
 
 var validRuntime = map[string]bool{
