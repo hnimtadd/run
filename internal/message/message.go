@@ -11,3 +11,8 @@ type Message struct {
 	Body   any
 	Header MessageType
 }
+
+type RequestRuntimeMessage struct {
+	DeploymentID string
+	Runtime      string
+}
