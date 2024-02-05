@@ -52,3 +52,7 @@ func (r *Runtime) Initialize(msg *message.RequestRuntimeMessage) error {
 
 	return nil
 }
+
+func (r *Runtime) Handle(msg *message.RequestMessage) error {
+	return r.runtime.Invoke(msg.Body, msg.Env, msg.Args...)
+}
