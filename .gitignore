@@ -1,2 +1,4 @@
 bin
 **/*.wasm
+.idea
+.go-version
