@@ -1,9 +1,6 @@
 run:
   go: "1.21"
   timeout: 5m
-  skip-files:
-    - "examples\\.go$"
-    - "test\\.go$"
 linters:
   enable:
     - gofumpt
