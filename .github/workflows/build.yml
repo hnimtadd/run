@@ -19,11 +19,14 @@ jobs:
       - name: Get Code
         uses: actions/checkout@v4
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4.0.0
-
       - name: Build
         run: go build ./cmd/*
+
+      - name: install golangci-lint
+        run: curl -ssfl https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env gopath)/bin v1.55.2
+
+      - name: Lint by golangci-lint
+        run: go list -f '{{.Dir}}/...' -m | xargs -n 1 sh -c 'golangci-lint run $0 || exit -1'
 
       - name: Build Wasm
         run: GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go

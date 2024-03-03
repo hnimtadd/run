@@ -1,0 +1,17 @@
+run:
+  go: "1.18"
+  timeout: 5m
+linters:
+  enable:
+    - gofumpt
+    - goimports
+    - revive
+    - errcheck
+    - staticcheck
+    - govet
+    - unused
+    - gosimple
+    - ineffassign
+linters-settings:
+  gofumpt:
+    module-path: "run" # prevent conflict gofumpt
