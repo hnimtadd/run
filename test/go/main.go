@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -17,6 +18,7 @@ import (
 var addWasm []byte
 
 func main() {
+	now := time.Now()
 	flag.Parse()
 	ctx := context.Background()
 
@@ -37,7 +39,8 @@ func main() {
 	if err != nil {
 		log.Panicf("failed to call add: %v", err.Error())
 	}
-	fmt.Printf("%d + %d = %d\n", x, y, results[0])
+	fmt.Printf("result: %d + %d = %d\n", x, y, results[0])
+	fmt.Printf("running example in %fs\n", time.Since(now).Seconds())
 }
 
 func readTwoArgs(xs, ys string) (uint64, uint64, error) {
