@@ -24,7 +24,9 @@ func (rm *RuntimeManager) Receive(msg *message.Message) {
 			log.Panic("unexpected error")
 		}
 		runtime := NewRuntime()
-		runtime.Initialize(requestRuntimeMessage)
+		if err := runtime.Initialize(requestRuntimeMessage); err != nil {
+			log.Panic(err)
+		}
 		rm.lookup[requestRuntimeMessage.DeploymentID] = runtime
 	case message.MessageTypeRemoveRuntime:
 		removeRuntimeMessage, ok := msg.Body.(*message.RemoveRuntimeMessage)
@@ -42,8 +44,11 @@ func (rm *RuntimeManager) Receive(msg *message.Message) {
 			log.Panic("unexpected error")
 		}
 		runtime, ok := rm.lookup[requestMessage.DeploymentID]
-		if ok {
-			runtime.Handle(requestMessage)
+		if !ok {
+			return
+		}
+		if err := runtime.Handle(requestMessage); err != nil {
+			log.Panic(err)
 		}
 	}
 }

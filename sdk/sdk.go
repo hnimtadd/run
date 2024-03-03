@@ -13,17 +13,17 @@ import (
 	"github.com/hnimtadd/run/pb/v1"
 )
 
-var (
-	requestBuffer  []byte
-	responseBuffer []byte
-)
+// var (
+// 	requestBuffer  []byte
+// 	responseBuffer []byte
+// )
 
-type request struct {
-	Header http.Header
-	Method string
-	URL    string
-	Body   []byte
-}
+// type request struct {
+// 	Header http.Header
+// 	Method string
+// 	URL    string
+// 	Body   []byte
+// }
 
 type responseWriter struct {
 	buffer *bytes.Buffer

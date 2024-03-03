@@ -2,17 +2,17 @@ package message
 
 import "io"
 
-type MessageType byte
+type Type byte
 
 const (
-	MessageTypeRequestRuntime MessageType = iota
+	MessageTypeRequestRuntime Type = iota
 	MessageTypeRemoveRuntime
 	MessageTypeRequest
 )
 
 type Message struct {
 	Body   any
-	Header MessageType
+	Header Type
 }
 
 type RequestRuntimeMessage struct {

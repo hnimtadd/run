@@ -26,6 +26,7 @@ func NewRuntime() *Runtime {
 
 func (r *Runtime) Initialize(msg *message.RequestRuntimeMessage) error {
 	r.deploymentID = uuid.MustParse(msg.DeploymentID)
+	r.started = time.Now()
 
 	// Must check deploy and cache here
 	// deploy, err := r.store.GetDeployment(r.deploymentID)
