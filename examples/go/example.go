@@ -8,7 +8,10 @@ import (
 
 func handle(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hello world!"))
+	_, err := w.Write([]byte("Hello world!"))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main() {
