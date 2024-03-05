@@ -7,16 +7,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hnimtadd/run/pb/v1"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tetratelabs/wazero"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/hnimtadd/run/pb/v1"
 )
 
 func TestRuntimeInvokeGoCode(t *testing.T) {
-	b, err := os.ReadFile("../../examples/go/example.wasm")
+	b, err := os.ReadFile("./../../examples/go/example.wasm")
 	require.Nil(t, err)
 	require.NotNil(t, b)
 
@@ -25,7 +25,7 @@ func TestRuntimeInvokeGoCode(t *testing.T) {
 		Url:    "/",
 		Body:   nil,
 	}
-	breq, err := proto.Marshal(req)
+	reqBytes, err := proto.Marshal(req)
 	require.Nil(t, err)
 
 	out := &bytes.Buffer{}
@@ -38,7 +38,7 @@ func TestRuntimeInvokeGoCode(t *testing.T) {
 	}
 	r, err := New(context.Background(), args)
 	require.Nil(t, err)
-	require.Nil(t, r.Invoke(bytes.NewReader(breq), nil))
+	require.Nil(t, r.Invoke(bytes.NewReader(reqBytes), nil))
 
 	fmt.Println(out)
 	require.NotZero(t, out.Len())

@@ -21,9 +21,9 @@ type Args struct {
 }
 
 type Runtime struct {
+	ctx          context.Context
 	mod          wazero.CompiledModule
 	runtime      wazero.Runtime
-	ctx          context.Context
 	stdout       io.Writer
 	engine       string
 	blob         []byte

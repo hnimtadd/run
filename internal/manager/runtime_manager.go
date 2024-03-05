@@ -1,10 +1,14 @@
 package manager
 
 import (
+	"context"
 	"log"
 
 	"github.com/hnimtadd/run/internal/message"
 )
+
+// wasm server->runtime manager->runtime ??
+// actor:separate instance without call directly with code
 
 type RuntimeManager struct {
 	lookup map[string]*Runtime
@@ -18,7 +22,7 @@ func NewRuntimeManager() *RuntimeManager {
 
 func (rm *RuntimeManager) Receive(msg *message.Message) {
 	switch msg.Header {
-	case message.MessageTypeRequestRuntime:
+	case message.TypeRequestRuntime:
 		requestRuntimeMessage, ok := msg.Body.(*message.RequestRuntimeMessage)
 		if !ok {
 			log.Panic("unexpected error")
@@ -28,7 +32,8 @@ func (rm *RuntimeManager) Receive(msg *message.Message) {
 			log.Panic(err)
 		}
 		rm.lookup[requestRuntimeMessage.DeploymentID] = runtime
-	case message.MessageTypeRemoveRuntime:
+
+	case message.TypeRemoveRuntime:
 		removeRuntimeMessage, ok := msg.Body.(*message.RemoveRuntimeMessage)
 		if !ok {
 			log.Panic("unexpected error")
@@ -38,17 +43,17 @@ func (rm *RuntimeManager) Receive(msg *message.Message) {
 		if ok {
 			delete(rm.lookup, removeRuntimeMessage.DeploymentID)
 		}
-	case message.MessageTypeRequest:
-		requestMessage, ok := msg.Body.(*message.RequestMessage)
+
+	case message.TypeRequest:
+		msg, ok := msg.Body.(*message.RequestMessage)
 		if !ok {
 			log.Panic("unexpected error")
 		}
-		runtime, ok := rm.lookup[requestMessage.DeploymentID]
+		runtime, ok := rm.lookup[msg.Request.DeploymentId]
 		if !ok {
 			return
 		}
-		if err := runtime.Handle(requestMessage); err != nil {
-			log.Panic(err)
-		}
+		ctx := context.WithValue(context.Background(), message.ContextKey(msg.Request.Id), msg.ResponseCh)
+		runtime.Handle(ctx, msg.Request)
 	}
 }
