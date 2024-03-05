@@ -1,13 +1,14 @@
 package message
 
-import "io"
+import "github.com/hnimtadd/run/pb/v1"
 
 type Type byte
+type ContextKey string
 
 const (
-	MessageTypeRequestRuntime Type = iota
-	MessageTypeRemoveRuntime
-	MessageTypeRequest
+	TypeRequestRuntime Type = iota
+	TypeRemoveRuntime
+	TypeRequest
 )
 
 type Message struct {
@@ -25,8 +26,8 @@ type RemoveRuntimeMessage struct {
 }
 
 type RequestMessage struct {
-	DeploymentID string
-	Body         io.Reader
-	Env          map[string]string
-	Args         []string
+	Request    *pb.HTTPRequest
+	ResponseCh chan<- *pb.HTTPResponse
 }
+
+type StartMessage struct{}
