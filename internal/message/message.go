@@ -2,8 +2,10 @@ package message
 
 import "github.com/hnimtadd/run/pb/v1"
 
-type Type byte
-type ContextKey string
+type (
+	Type       byte
+	ContextKey string
+)
 
 const (
 	TypeRequestRuntime Type = iota
