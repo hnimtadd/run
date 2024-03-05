@@ -23,7 +23,11 @@ func main() {
 	ctx := context.Background()
 
 	r := wazero.NewRuntime(ctx)
-	defer r.Close(ctx)
+	defer func() {
+		if err := r.Close(ctx); err != nil {
+			fmt.Printf(`cannot close, err %v`, err)
+		}
+	}()
 
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 	mod, err := r.Instantiate(ctx, addWasm)
