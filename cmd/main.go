@@ -1,7 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/hnimtadd/run/internal/manager"
+)
 
 func main() {
-	fmt.Println("Hello from Run!")
+	server := manager.NewServer(nil)
+	fmt.Println(server)
 }

@@ -14,17 +14,20 @@ type Server struct {
 	response map[string]chan<- *pb.HTTPResponse
 }
 
-func NewServer() *Server {
-	rm := NewRuntimeManager()
-	return &Server{
-		rm: rm,
-	}
+func NewServer(server *http.Server) *Server {
+	s := &Server{rm: NewRuntimeManager(), response: make(map[string]chan<- *pb.HTTPResponse), server: server}
+	s.initialize()
+	return s
 }
 
 func (s *Server) ReceiveMessage(m any) {
 	switch msg := m.(type) {
 	case *message.StartMessage:
 		s.initialize()
+	// Receive request message with response function
+	case *message.RequestMessage:
+		go s.rm.Receive(&message.Message{Header: message.TypeRequest, Body: msg})
+
 	case *pb.HTTPResponse:
 		msgID := msg.RequestId
 		rspCh, ok := s.response[msgID]
