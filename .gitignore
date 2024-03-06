@@ -2,3 +2,4 @@ bin
 **/*.wasm
 .idea
 .go-version
+.env
