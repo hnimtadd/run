@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hnimtadd/run/internal/message"
 	"github.com/hnimtadd/run/internal/runtime"
+	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/pb/v1"
 
 	"github.com/asynkron/protoactor-go/actor"
@@ -18,11 +18,12 @@ import (
 )
 
 type Runtime struct {
-	started time.Time
-	runtime *runtime.Runtime
-	stdout  *bytes.Buffer
-	blob    []byte
-	// store
+	started      time.Time
+	store        store.Store
+	cache        store.ModCacher
+	runtime      *runtime.Runtime
+	stdout       *bytes.Buffer
+	managerPID   *actor.PID
 	deploymentID uuid.UUID
 }
 
@@ -30,27 +31,43 @@ func (r *Runtime) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
 		r.started = time.Now()
-	case *message.RequestRuntimeMessage:
-		if err := r.Initialize(msg); err != nil {
-			fmt.Printf("cannot init runtime, %v", err)
+	case *actor.Stopped:
+		timeUsed := time.Since(r.started)
+		fmt.Println("stopped runtime", timeUsed.Seconds())
+	case *pb.HTTPRequest:
+		fmt.Println("runtime handling request", "request_id", msg.Id)
+		if r.runtime == nil {
+			if err := r.Initialize(msg); err != nil {
+				fmt.Println("cannot initialized runtime", err)
+			}
 		}
+		r.managerPID = ctx.Sender()
+		// Handle the HTTP request that is forwarded from the WASM server actor.
+		r.Handle(ctx, msg)
 	}
 }
 
-func (r *Runtime) Initialize(msg *message.RequestRuntimeMessage) error {
-	r.deploymentID = uuid.MustParse(msg.DeploymentID)
-	r.started = time.Now()
+func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
+	deploy, err := r.store.GetDeployment(msg.DeploymentId)
+	if err != nil {
+		return fmt.Errorf("runtime: could not find deployment (%s)", r.deploymentID)
+	}
 
-	modCache := wazero.NewCompilationCache()
+	r.deploymentID = deploy.ID
+	modCache, err := r.cache.Get(deploy.ID)
+	if err != nil {
+		fmt.Println("cache not hit")
+		modCache = wazero.NewCompilationCache()
+	}
 
 	args := runtime.Args{
 		Cache:        modCache,
-		DeploymentID: r.deploymentID,
+		DeploymentID: deploy.ID,
 		Engine:       msg.Runtime,
 		Stdout:       r.stdout,
 	}
 
-	args.Blob = r.blob
+	args.Blob = deploy.Blob
 
 	run, err := runtime.New(context.Background(), args)
 	if err != nil {
@@ -58,6 +75,9 @@ func (r *Runtime) Initialize(msg *message.RequestRuntimeMessage) error {
 	}
 	r.runtime = run
 
+	go func() {
+		_ = r.cache.Put(deploy.ID, modCache)
+	}()
 	return nil
 }
 
@@ -107,6 +127,11 @@ func responseError(ctx actor.Context, code int32, msg string, id string) {
 	})
 }
 
-func NewRuntime() actor.Actor {
-	return &Runtime{}
+func NewRuntime(store store.Store, cache store.ModCacher) actor.Producer {
+	return func() actor.Actor {
+		return &Runtime{
+			store: store,
+			cache: cache,
+		}
+	}
 }

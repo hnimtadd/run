@@ -1,13 +1,17 @@
 package actrs
 
 import (
-	"github.com/asynkron/protoactor-go/actor"
 	"github.com/hnimtadd/run/internal/message"
+	"github.com/hnimtadd/run/internal/store"
+
+	"github.com/asynkron/protoactor-go/actor"
 )
 
 var KindRuntimeManager = "runtime-manager"
 
 type RuntimeManager struct {
+	store  store.Store
+	cache  store.ModCacher
 	lookup map[string]*actor.PID // map pid with runtime
 }
 
@@ -24,21 +28,25 @@ func (r *RuntimeManager) Receive(ctx actor.Context) {
 	case *message.RequestRuntimeMessage:
 		pid, ok := r.lookup[msg.DeploymentID]
 		if !ok {
-			pid = r.SpawnRuntime(ctx, msg)
+			pid = r.SpawnRuntime(ctx)
+			r.lookup[msg.DeploymentID] = pid
 		}
 		ctx.Respond(pid)
 	}
 }
 
-func (r *RuntimeManager) SpawnRuntime(ctx actor.Context, msg *message.RequestRuntimeMessage) *actor.PID {
-	props := actor.PropsFromProducer(NewRuntime)
+func (r *RuntimeManager) SpawnRuntime(ctx actor.Context) *actor.PID {
+	props := actor.PropsFromProducer(NewRuntime(r.store, r.cache))
 	pid := ctx.Spawn(props)
-	ctx.Request(pid, msg)
 	return pid
 }
 
-func NewRuntimeManager() actor.Actor {
-	return &RuntimeManager{
-		lookup: make(map[string]*actor.PID),
+func NewRuntimeManager(store store.Store, cache store.ModCacher) actor.Producer {
+	return func() actor.Actor {
+		return &RuntimeManager{
+			lookup: make(map[string]*actor.PID),
+			store:  store,
+			cache:  cache,
+		}
 	}
 }

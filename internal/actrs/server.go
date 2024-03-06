@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hnimtadd/run/internal/message"
+	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/pb/v1"
 
 	"github.com/asynkron/protoactor-go/actor"
@@ -18,22 +19,28 @@ type Server struct {
 	self              *actor.PID
 	runtimeManagerPID *actor.PID
 	responses         map[string]chan<- *pb.HTTPResponse
+	store             store.Store
+	cache             store.ModCacher
 }
 
 func (s *Server) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
+		s.self = ctx.Self()
 		s.Initialize()
-		runtimeManagerPID := ctx.Spawn(actor.PropsFromProducer(NewRuntimeManager))
+		runtimeManagerPID := ctx.Spawn(actor.PropsFromProducer(NewRuntimeManager(s.store, s.cache)))
 		s.runtimeManagerPID = runtimeManagerPID
 
 	case *actor.Stopped:
 		s.Stop()
 
 	case *message.RequestMessage:
-		//TODO: at here there is no guarantee that the runtime could be
+
+		// TODO: at here there is no guarantee
+		// that the runtime could be
 		// initialized in time.
 		// In that case, we could spaw the runtime
+
 		runtimePID := s.RequestRuntime(ctx, msg.Request.DeploymentId, msg.Request.Runtime)
 		if runtimePID == nil {
 			log.Panic("failed to request a runtime PID")
@@ -97,6 +104,8 @@ func NewServer(addr string) actor.Producer {
 	return func() actor.Actor {
 		s := &Server{
 			responses: make(map[string]chan<- *pb.HTTPResponse),
+			store:     store.NewMemoryStore(),
+			cache:     store.NewMemoryModCacher(),
 		}
 		server := &http.Server{Addr: addr, Handler: s}
 		s.httpServer = server
