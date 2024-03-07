@@ -48,7 +48,7 @@ func (r *Runtime) Receive(ctx actor.Context) {
 }
 
 func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
-	deploy, err := r.store.GetDeployment(msg.DeploymentId)
+	deploy, err := r.store.GetDeploymentByID(msg.DeploymentId)
 	if err != nil {
 		return fmt.Errorf("runtime: could not find deployment (%s)", r.deploymentID)
 	}

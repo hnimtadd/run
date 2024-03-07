@@ -19,7 +19,6 @@ type Deployment struct {
 func NewDeployment(endpoint *Endpoint, blob []byte) (*Deployment, error) {
 	md5hash := md5.Sum(blob)
 	deploymentHash := hex.EncodeToString(md5hash[:])
-
 	deploymentID := uuid.New()
 	deployment := &Deployment{
 		ID:         deploymentID,

@@ -3,9 +3,9 @@ package types
 import (
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/hnimtadd/run/internal/errors"
+
+	"github.com/google/uuid"
 )
 
 var validRuntime = map[string]bool{

@@ -1,8 +1,9 @@
 package store
 
 import (
-	"github.com/google/uuid"
 	"github.com/hnimtadd/run/internal/types"
+
+	"github.com/google/uuid"
 )
 
 type Store interface {
