@@ -47,7 +47,7 @@ func (m *MemoryStore) UpdateEndpoint(endpointID string, params UpdateEndpointPar
 	return nil
 }
 
-func (m *MemoryStore) GetEndpoint(endpointID string) (*types.Endpoint, error) {
+func (m *MemoryStore) GetEndpointByID(endpointID string) (*types.Endpoint, error) {
 	endpointUUID, err := uuid.Parse(endpointID)
 	if err != nil {
 		return nil, err
@@ -58,6 +58,38 @@ func (m *MemoryStore) GetEndpoint(endpointID string) (*types.Endpoint, error) {
 		return nil, errors.ErrEndpointNotExisted
 	}
 	return endpoint, nil
+}
+
+func (m *MemoryStore) GetEndpoints() ([]*types.Endpoint, error) {
+	var res []*types.Endpoint
+	m.mu.Lock()
+	for _, endpoint := range m.endpoints {
+		res = append(res, endpoint)
+	}
+	m.mu.Unlock()
+	return res, nil
+}
+
+func (m *MemoryStore) GetDeploymentByID(deploymentID string) (*types.Deployment, error) {
+	uid, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return nil, err
+	}
+	deployment, existed := m.deploys[uid]
+	if !existed {
+		return nil, errors.ErrDeploymentNotExisted
+	}
+	return deployment, nil
+}
+
+func (m *MemoryStore) GetDeployments() ([]*types.Deployment, error) {
+	var res []*types.Deployment
+	m.mu.Lock()
+	for _, deployment := range m.deploys {
+		res = append(res, deployment)
+	}
+	m.mu.Unlock()
+	return res, nil
 }
 
 func (m *MemoryStore) CreateDeployment(deploy *types.Deployment) error {

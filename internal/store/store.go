@@ -8,9 +8,11 @@ import (
 type Store interface {
 	CreateEndpoint(endpoint *types.Endpoint) error
 	UpdateEndpoint(endpointID string, params UpdateEndpointParams) error
-	GetEndpoint(endpointID string) (*types.Endpoint, error)
+	GetEndpointByID(endpointID string) (*types.Endpoint, error)
+	GetEndpoints() ([]*types.Endpoint, error)
 	CreateDeployment(deploy *types.Deployment) error
-	GetDeployment(deploymentID string) (*types.Deployment, error)
+	GetDeploymentByID(deploymentID string) (*types.Deployment, error)
+	GetDeployments() ([]*types.Deployment, error)
 }
 
 type UpdateEndpointParams struct {
