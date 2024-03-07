@@ -96,12 +96,12 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	return writeJSON(w, http.StatusOK, deployment)
 }
 
-func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleGetDeploymentsOfEndpoint(_ http.ResponseWriter, _ *http.Request) error {
 	return nil
 }
 
 // HandleGetDeployment TODO: get deployment from store, exclude Blob
-func (s *Server) HandleGetDeployment(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleGetDeployment(_ http.ResponseWriter, _ *http.Request) error {
 	return nil
 }
 
