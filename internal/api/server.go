@@ -3,12 +3,14 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/hnimtadd/run/internal/settings"
 	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/internal/types"
+	"github.com/hnimtadd/run/internal/utils"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -29,71 +31,79 @@ type CreateEndpointParams struct {
 }
 
 func (s *Server) HandleCreateEndpoint(w http.ResponseWriter, r *http.Request) error {
-	var params *CreateEndpointParams
+	params := new(CreateEndpointParams)
 	if err := json.NewDecoder(r.Body).Decode(params); err != nil {
-		return writeJSON(w, http.StatusBadRequest, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 	}
 	defer func() { _ = r.Body.Close() }()
 
 	endpoint, err := types.NewEnpoint(params.Name, params.Runtime, params.Environment)
 	if err != nil {
-		return writeJSON(w, http.StatusBadRequest, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 	}
 	if err := s.store.CreateEndpoint(endpoint); err != nil {
-		return writeJSON(w, http.StatusInternalServerError, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	return writeJSON(w, http.StatusOK, endpoint)
+	return utils.WriteJSON(w, http.StatusOK, endpoint)
 }
 
-func (s *Server) HandleGetEndpoint(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
+	fmt.Println("get endpoint id", endpointID)
 
 	endpoint, err := s.store.GetEndpointByID(endpointID)
 	if err != nil {
-		return writeJSON(w, http.StatusNotFound, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	return writeJSON(w, http.StatusOK, endpoint)
+	return utils.WriteJSON(w, http.StatusOK, endpoint)
 }
 
 func (s *Server) HandleGetEndpoints(w http.ResponseWriter, _ *http.Request) error {
 	endpoints, err := s.store.GetEndpoints()
 	if err != nil {
-		return writeJSON(w, http.StatusInternalServerError, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
-	return writeJSON(w, http.StatusOK, endpoints)
+	return utils.WriteJSON(w, http.StatusOK, endpoints)
 }
 
 func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
 	endpoint, err := s.store.GetEndpointByID(endpointID)
 	if err != nil {
-		return writeJSON(w, http.StatusNotFound, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
+
 	if err := r.ParseMultipartForm(_24k); err != nil {
-		return writeJSON(w, http.StatusInternalServerError, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
+
 	f, _, err := r.FormFile("blob")
 	if err != nil {
-		return writeJSON(w, http.StatusInternalServerError, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
+
 	buf := new(bytes.Buffer)
 	size, err := io.Copy(buf, f)
 	if err != nil {
-		return writeJSON(w, http.StatusInternalServerError, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
+
 	if size >= settings.MaxBlobSize {
-		return writeJSON(w, http.StatusBadRequest, map[string]string{"error": "given blob exceed maxsize"})
+		fmt.Println(size, settings.MaxBlobSize)
+		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "given blob exceed maxsize"})
 	}
+
 	deployment, err := types.NewDeployment(endpoint, buf.Bytes())
 	if err != nil {
-		return writeJSON(w, http.StatusInternalServerError, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
+
 	if err := s.store.CreateDeployment(deployment); err != nil {
-		return writeJSON(w, http.StatusInternalServerError, makeErrorResponse(err))
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	return writeJSON(w, http.StatusOK, deployment)
+	return utils.WriteJSON(w, http.StatusOK, deployment)
 }
 
 func (s *Server) HandleGetDeploymentsOfEndpoint(_ http.ResponseWriter, _ *http.Request) error {
@@ -122,13 +132,14 @@ func (s *Server) InitRoute() {
 	s.router = chi.NewRouter()
 	s.router.Get("/status", makeAPIHandler(handleStatus))
 	s.router.Post("/endpoint", makeAPIHandler(s.HandleCreateEndpoint))
-	s.router.Get("/endpoint/:id", makeAPIHandler(s.HandleGetEndpoint))
-	s.router.Post("/endpoint/:id/deploy", makeAPIHandler(s.HandlePostDeployment))
-	s.router.Get("/endpoint/:id/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
-	s.router.Get("/deploy/:id", makeAPIHandler(s.HandleGetDeployment))
+	s.router.Get("/endpoint/{id}", makeAPIHandler(s.HandleGetEndpointByID))
+	s.router.Post("/endpoint/{id}/deploy", makeAPIHandler(s.HandlePostDeployment))
+	s.router.Get("/endpoint/{id}/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
+	s.router.Get("/deploy/{id}", makeAPIHandler(s.HandleGetDeployment))
 }
 
 func (s *Server) ListenAndServe(addr string) error {
 	s.InitRoute()
+	fmt.Printf("Listen and serve api at: %v\n", addr)
 	return http.ListenAndServe(addr, s.router)
 }
