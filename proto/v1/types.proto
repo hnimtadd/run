@@ -6,7 +6,7 @@ message HTTPRequest {
   bytes body = 1;
   string method = 2;
   string url = 3;
-  string enpoint_id = 4;
+  string endpoint_id = 4;
   map<string,string> env = 5;
   map<string, HeaderFields> header = 6;
   string runtime = 7;

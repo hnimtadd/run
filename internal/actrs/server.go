@@ -166,7 +166,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req.Env = endpoint.Environment
 	req.Runtime = endpoint.Runtime
 	req.Header = rHeaders
-	req.EnpointId = endpoint.ID.String()
+	req.EndpointId = endpoint.ID.String()
 	req.DeploymentId = deploy.ID.String()
 	req.Method = r.Method
 	req.Url = innerURL
