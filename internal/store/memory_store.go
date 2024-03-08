@@ -101,6 +101,7 @@ func (m *MemoryStore) CreateDeployment(deploy *types.Deployment) error {
 	}
 	m.mu.RLock()
 	m.deploys[deploy.ID] = deploy
+	m.endpoints[deploy.EndpointID].ActiveDeploymentID = deploy.ID
 	m.mu.RUnlock()
 	return nil
 }

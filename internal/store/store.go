@@ -11,7 +11,7 @@ type Store interface {
 	UpdateEndpoint(endpointID string, params UpdateEndpointParams) error
 	GetEndpointByID(endpointID string) (*types.Endpoint, error)
 	GetEndpoints() ([]*types.Endpoint, error)
-	CreateDeployment(deploy *types.Deployment) error
+	CreateDeployment(deploy *types.Deployment) error // TODO: should we mark this deployment as active deployment
 	GetDeploymentByID(deploymentID string) (*types.Deployment, error)
 	GetDeployments() ([]*types.Deployment, error)
 }
