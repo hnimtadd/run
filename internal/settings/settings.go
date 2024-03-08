@@ -1,3 +1,3 @@
 package settings
 
-var MaxBlobSize int64 = (1 >> 10) * 24
+var MaxBlobSize int64 = (1 << 12) * 24

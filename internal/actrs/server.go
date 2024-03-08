@@ -1,17 +1,23 @@
 package actrs
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hnimtadd/run/internal/message"
 	"github.com/hnimtadd/run/internal/store"
+	"github.com/hnimtadd/run/internal/types"
+	"github.com/hnimtadd/run/internal/utils"
 	"github.com/hnimtadd/run/pb/v1"
 
 	"github.com/asynkron/protoactor-go/actor"
+	"github.com/google/uuid"
 )
 
 type Server struct {
@@ -35,7 +41,6 @@ func (s *Server) Receive(ctx actor.Context) {
 		s.Stop()
 
 	case *message.RequestMessage:
-
 		// TODO: at here there is no guarantee
 		// that the runtime could be
 		// initialized in time.
@@ -50,7 +55,6 @@ func (s *Server) Receive(ctx actor.Context) {
 		if msg.ResponseCh == nil {
 			return
 		}
-
 		s.responses[msg.Request.Id] = msg.ResponseCh
 
 	case *pb.HTTPResponse:
@@ -77,8 +81,8 @@ func (s *Server) RequestRuntime(c actor.Context, deploymentID string, runtime st
 }
 
 func (s *Server) Initialize() {
-	fmt.Println("serving...")
 	go func() {
+		fmt.Printf("serving at %v...\n", s.httpServer.Addr)
 		log.Panic(s.httpServer.ListenAndServe())
 	}()
 }
@@ -92,19 +96,106 @@ func (s *Server) Stop() {
 	}
 }
 
-func (s *Server) ServeHTTP(writer http.ResponseWriter, _ *http.Request) {
-	writer.WriteHeader(http.StatusOK)
-	_, err := writer.Write([]byte("hello world"))
-	if err != nil {
-		panic(err)
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			log.Panic("cannot close request body", err)
+		}
+	}()
+	path := strings.TrimPrefix(r.URL.Path, "/")
+	path = strings.TrimSuffix(path, "/")
+	pathParts := strings.Split(path, "/")
+	fmt.Println(pathParts)
+	innerURL := ""
+	if len(pathParts) > 2 {
+		innerURL = fmt.Sprintf("/%s", strings.Join(pathParts[2:len(pathParts)-1], "/"))
 	}
+
+	var (
+		deploy   *types.Deployment
+		endpoint *types.Endpoint
+		err      error
+		req      = utils.MakeProtoRequest(uuid.NewString())
+	)
+	// first param is mode
+	switch pathParts[0] {
+	case "preview":
+		// second param is deployID
+		deploy, err = s.store.GetDeploymentByID(pathParts[1])
+		if err != nil {
+			_ = utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+			return
+		}
+
+		endpoint, err = s.store.GetEndpointByID(deploy.EndpointID.String())
+		if err != nil {
+			_ = utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
+			return
+		}
+
+	case "live":
+		// second param is endpointId
+		endpoint, err = s.store.GetEndpointByID(pathParts[1])
+		if err != nil {
+			_ = utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+			return
+		}
+
+		if !endpoint.HasActiveDeploy() {
+			_ = utils.WriteJSON(w, http.StatusBadRequest, []byte("endpoint does not have any published deploy"))
+			return
+		}
+
+		deploy, err = s.store.GetDeploymentByID(endpoint.ActiveDeploymentID.String())
+		if err != nil {
+			_ = utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
+			return
+		}
+	default:
+		_ = utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "request must be in live or preview mode"})
+		return
+	}
+
+	rHeaders := make(map[string]*pb.HeaderFields)
+	for k, v := range r.Header {
+		field := &pb.HeaderFields{
+			Fields: v,
+		}
+		rHeaders[k] = field
+	}
+	req.Env = endpoint.Environment
+	req.Runtime = endpoint.Runtime
+	req.Header = rHeaders
+	req.EnpointId = endpoint.ID.String()
+	req.DeploymentId = deploy.ID.String()
+	req.Method = r.Method
+	req.Url = innerURL
+
+	bodyBuf := new(bytes.Buffer)
+	_, err = io.Copy(bodyBuf, r.Body)
+	if err != nil {
+		_ = utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
+		return
+	}
+	req.Body = bodyBuf.Bytes()
+
+	rspCh := make(chan *pb.HTTPResponse, 1)
+	reqMessage := message.NewRequestMessage(req, rspCh)
+
+	// TODO: currently rootActor could pass the request to the server
+	// consider using cluster
+	actor.NewActorSystem().Root.Request(s.self, reqMessage)
+
+	fmt.Println("waiting for response...")
+	rsp := <-rspCh
+	fmt.Println(rsp)
 }
 
-func NewServer(addr string) actor.Producer {
+func NewServer(addr string, s store.Store) actor.Producer {
 	return func() actor.Actor {
 		s := &Server{
 			responses: make(map[string]chan<- *pb.HTTPResponse),
-			store:     store.NewMemoryStore(),
+			store:     s,
 			cache:     store.NewMemoryModCacher(),
 		}
 		server := &http.Server{Addr: addr, Handler: s}

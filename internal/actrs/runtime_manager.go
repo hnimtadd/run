@@ -7,8 +7,6 @@ import (
 	"github.com/asynkron/protoactor-go/actor"
 )
 
-var KindRuntimeManager = "runtime-manager"
-
 type RuntimeManager struct {
 	store  store.Store
 	cache  store.ModCacher

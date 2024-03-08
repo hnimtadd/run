@@ -40,3 +40,7 @@ func NewEnpoint(name string, runtime string, environment map[string]string) (*En
 	}
 	return endpoint, nil
 }
+
+func (e Endpoint) HasActiveDeploy() bool {
+	return e.ID != uuid.Nil
+}
