@@ -3,11 +3,12 @@ package runtime_test
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"net/http"
 	"os"
 	"testing"
 
 	"github.com/hnimtadd/run/internal/runtime"
+	"github.com/hnimtadd/run/internal/shared"
 	"github.com/hnimtadd/run/pb/v1"
 
 	"github.com/google/uuid"
@@ -17,16 +18,15 @@ import (
 )
 
 func TestRuntime_InvokeGoCode(t *testing.T) {
-	b, err := os.ReadFile("./../../examples/go/example.wasm")
+	b, err := os.ReadFile("./../_testdata/helloworld.wasm")
 	require.Nil(t, err)
-	require.NotNil(t, b)
 
 	req := &pb.HTTPRequest{
 		Method: "get",
 		Url:    "/",
 		Body:   nil,
 	}
-	reqBytes, err := proto.Marshal(req)
+	breq, err := proto.Marshal(req)
 	require.Nil(t, err)
 
 	out := &bytes.Buffer{}
@@ -39,10 +39,11 @@ func TestRuntime_InvokeGoCode(t *testing.T) {
 	}
 	r, err := runtime.New(context.Background(), args)
 	require.Nil(t, err)
-	require.Nil(t, r.Invoke(bytes.NewReader(reqBytes), nil))
-
-	fmt.Println(out)
-	require.NotZero(t, out.Len())
+	require.Nil(t, r.Invoke(bytes.NewReader(breq), nil))
+	status, res, err := shared.ParseStdout(out)
+	require.Nil(t, err)
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, "Hello world!", string(res))
 	require.Nil(t, r.Close())
 }
 

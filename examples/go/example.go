@@ -1,19 +1,31 @@
 package main
 
 import (
+	"github.com/hnimtadd/run/sdk"
 	"net/http"
 
-	"github.com/hnimtadd/run/sdk"
+	"github.com/go-chi/chi/v5"
 )
 
-func handle(w http.ResponseWriter, _ *http.Request) {
+func handleLogin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte("Hello world!"))
-	if err != nil {
-		panic(err)
-	}
+	_, _ = w.Write([]byte("hello from the login handler YADA"))
+}
+
+func handleDashboard(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("hello from the dashboard handler"))
+}
+
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" />"))
 }
 
 func main() {
-	sdk.Handle(http.HandlerFunc(handle))
+	router := chi.NewMux()
+	router.Get("/dashboard", handleDashboard)
+	router.Get("/login", handleLogin)
+	router.Get("/", handleIndex)
+	sdk.Handle(router)
 }

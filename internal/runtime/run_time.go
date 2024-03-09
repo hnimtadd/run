@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"github.com/google/uuid"
@@ -40,7 +39,7 @@ func New(ctx context.Context, args Args) (*Runtime, error) {
 		return nil, fmt.Errorf("runtime: failed to compile module, err: %v", err)
 	}
 
-	runtime := &Runtime{
+	return &Runtime{
 		engine:       args.Engine,
 		stdout:       args.Stdout,
 		runtime:      r,
@@ -48,8 +47,7 @@ func New(ctx context.Context, args Args) (*Runtime, error) {
 		blob:         args.Blob,
 		ctx:          ctx,
 		deploymentID: args.DeploymentID,
-	}
-	return runtime, nil
+	}, nil
 }
 
 func (r *Runtime) Invoke(stdin io.Reader, env map[string]string, args ...string) error {
@@ -59,18 +57,12 @@ func (r *Runtime) Invoke(stdin io.Reader, env map[string]string, args ...string)
 		WithStdout(r.stdout).
 		WithStderr(os.Stderr).
 		WithArgs(args...)
+
 	for key, value := range env {
 		modConf = modConf.WithEnv(key, value)
 	}
 
 	_, err := r.runtime.InstantiateModule(r.ctx, r.mod, modConf)
-	if err != nil {
-		log.Printf("runtime: cannot instantiate module, err: %v", err)
-		_, err := r.runtime.InstantiateWithConfig(r.ctx, r.blob, modConf)
-		if err != nil {
-			log.Panicf("runtime: cannot instantiate module, err: %v", err)
-		}
-	}
 	return err
 }
 
