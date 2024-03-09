@@ -32,6 +32,6 @@ jobs:
       - name: Build
         run: go build ./cmd/*
       - name: Build Wasm
-        run: GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go
+        run: make build_example
       - name: Test
         run: go test ./...
