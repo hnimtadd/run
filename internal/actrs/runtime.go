@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/hnimtadd/run/internal/runtime"
+	"github.com/hnimtadd/run/internal/shared"
 	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/pb/v1"
 
 	"github.com/asynkron/protoactor-go/actor"
+	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/google/uuid"
 	"github.com/tetratelabs/wazero"
 	"google.golang.org/protobuf/proto"
@@ -30,6 +32,7 @@ type Runtime struct {
 func (r *Runtime) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
+		fmt.Print("booted runtime at", ctx.Self().Id)
 		r.started = time.Now()
 	case *actor.Stopped:
 		timeUsed := time.Since(r.started)
@@ -60,14 +63,14 @@ func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
 		modCache = wazero.NewCompilationCache()
 	}
 
+	r.stdout = new(bytes.Buffer)
 	args := runtime.Args{
 		Cache:        modCache,
 		DeploymentID: deploy.ID,
 		Engine:       msg.Runtime,
 		Stdout:       r.stdout,
+		Blob:         deploy.Blob,
 	}
-
-	args.Blob = deploy.Blob
 
 	run, err := runtime.New(context.Background(), args)
 	if err != nil {
@@ -103,11 +106,16 @@ func (r *Runtime) Handle(ctx actor.Context, msg *pb.HTTPRequest) {
 		return
 	}
 
-	// TODO: runtime should return status, http response, log instead of http response only
-	rsp := new(pb.HTTPResponse)
-	if err := proto.Unmarshal(r.stdout.Bytes(), rsp); err != nil {
-		responseError(ctx, http.StatusInternalServerError, "invoke error: "+err.Error(), msg.Id)
+	// TODO: return logs from sandbox
+	status, body, err := shared.ParseStdout(r.stdout)
+	if err != nil {
+		responseError(ctx, http.StatusInternalServerError, "cannot parse output"+err.Error(), msg.Id)
 		return
+	}
+	rsp := &pb.HTTPResponse{
+		Body:      body,
+		Code:      int32(status),
+		RequestId: msg.Id,
 	}
 
 	// TODO: in the future, we should track the runtime metric of the request (duration, status)
@@ -116,22 +124,34 @@ func (r *Runtime) Handle(ctx actor.Context, msg *pb.HTTPRequest) {
 }
 
 func responseHTTPResponse(ctx actor.Context, response *pb.HTTPResponse) {
-	ctx.Send(ctx.Parent(), response)
+	ctx.Respond(response)
 }
 
 func responseError(ctx actor.Context, code int32, msg string, id string) {
-	ctx.Send(ctx.Parent(), &pb.HTTPResponse{
+	ctx.Respond(&pb.HTTPResponse{
 		Body:      []byte(msg),
 		Code:      code,
 		RequestId: id,
 	})
 }
 
-func NewRuntime(store store.Store, cache store.ModCacher) actor.Producer {
+func NewRuntime(cfg *RuntimeConfig) actor.Producer {
 	return func() actor.Actor {
 		return &Runtime{
-			store: store,
-			cache: cache,
+			store: cfg.Store,
+			cache: cfg.Cache,
 		}
 	}
+}
+
+var KindRuntime = "kind-runtime"
+
+type RuntimeConfig struct {
+	Store store.Store
+	Cache store.ModCacher
+}
+
+func NewRuntimeKind(cfg *RuntimeConfig, opts ...actor.PropsOption) *cluster.Kind {
+	props := actor.PropsFromProducer(NewRuntime(cfg), opts...)
+	return cluster.NewKind(KindRuntime, props)
 }

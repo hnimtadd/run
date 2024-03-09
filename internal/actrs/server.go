@@ -17,25 +17,34 @@ import (
 	"github.com/hnimtadd/run/pb/v1"
 
 	"github.com/asynkron/protoactor-go/actor"
+	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/google/uuid"
 )
 
-type Server struct {
-	httpServer        *http.Server
-	self              *actor.PID
-	runtimeManagerPID *actor.PID
-	responses         map[string]chan<- *pb.HTTPResponse
-	store             store.Store
-	cache             store.ModCacher
-}
+type (
+	Server struct {
+		httpServer        *http.Server
+		self              *actor.PID
+		runtimeManagerPID *actor.PID
+		ctx               cluster.GrainContext
+		responses         map[string]chan<- *pb.HTTPResponse
+		store             store.Store
+		cache             store.ModCacher
+	}
+	ServerConfig struct {
+		Addr  string
+		Store store.Store
+	}
+)
 
 func (s *Server) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
+	case *cluster.ClusterInit:
+		fmt.Println("init")
+		s.ctx = cluster.NewGrainContext(ctx, msg.Identity, msg.Cluster)
 		s.self = ctx.Self()
 		s.Initialize()
-		runtimeManagerPID := ctx.Spawn(actor.PropsFromProducer(NewRuntimeManager(s.store, s.cache)))
-		s.runtimeManagerPID = runtimeManagerPID
 
 	case *actor.Stopped:
 		s.Stop()
@@ -46,12 +55,14 @@ func (s *Server) Receive(ctx actor.Context) {
 		// initialized in time.
 		// In that case, we could spaw the runtime
 
-		runtimePID := s.RequestRuntime(ctx, msg.Request.DeploymentId, msg.Request.Runtime)
+		runtimePID := s.RequestRuntime(msg.Request.DeploymentId, msg.Request.Runtime)
 		if runtimePID == nil {
 			log.Panic("failed to request a runtime PID")
 			return
 		}
-		defer ctx.RequestWithCustomSender(runtimePID, msg, s.self)
+		fmt.Println("runtime PID", runtimePID.Id)
+
+		defer s.ctx.Request(runtimePID, msg.Request)
 		if msg.ResponseCh == nil {
 			return
 		}
@@ -65,22 +76,26 @@ func (s *Server) Receive(ctx actor.Context) {
 	}
 }
 
-func (s *Server) RequestRuntime(c actor.Context, deploymentID string, runtime string) *actor.PID {
-	res, err := c.RequestFuture(
+func (s *Server) RequestRuntime(deploymentID string, runtime string) *actor.PID {
+	res, err := s.ctx.RequestFuture(
 		s.runtimeManagerPID,
-		message.RequestRuntimeMessage{
+		&message.RequestRuntimeMessage{
 			DeploymentID: deploymentID,
 			Runtime:      runtime,
 		},
-		time.Second*2,
+		time.Second*5,
 	).Result()
 	if err != nil {
+		fmt.Println(err)
 		return nil
 	}
 	return res.(*actor.PID)
 }
 
 func (s *Server) Initialize() {
+	s.runtimeManagerPID = s.ctx.Cluster().Get("localRuntimeManager", KindRuntimeManager)
+	fmt.Println("runtime manager id", s.runtimeManagerPID.String())
+
 	go func() {
 		fmt.Printf("serving at %v...\n", s.httpServer.Addr)
 		log.Panic(s.httpServer.ListenAndServe())
@@ -181,25 +196,39 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rspCh := make(chan *pb.HTTPResponse, 1)
 	reqMessage := message.NewRequestMessage(req, rspCh)
-
 	// TODO: currently rootActor could pass the request to the server
 	// consider using cluster
-	actor.NewActorSystem().Root.Request(s.self, reqMessage)
 
+	if err != nil {
+		_ = utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
+		return
+	}
+
+	s.ctx.Send(s.self, reqMessage)
 	fmt.Println("waiting for response...")
 	rsp := <-rspCh
-	fmt.Println(rsp)
+
+	w.WriteHeader(int(rsp.Code))
+	_, _ = w.Write(rsp.Body)
 }
 
-func NewServer(addr string, s store.Store) actor.Producer {
+func NewServer(cfg *ServerConfig) actor.Producer {
 	return func() actor.Actor {
 		s := &Server{
 			responses: make(map[string]chan<- *pb.HTTPResponse),
-			store:     s,
+			store:     cfg.Store,
 			cache:     store.NewMemoryModCacher(),
 		}
-		server := &http.Server{Addr: addr, Handler: s}
+		server := &http.Server{Addr: cfg.Addr, Handler: s}
 		s.httpServer = server
 		return s
 	}
+}
+
+// actor-related setting
+
+var KindServer = "kind-wasm-server"
+
+func NewServerKind(cfg *ServerConfig, opts ...actor.PropsOption) *cluster.Kind {
+	return cluster.NewKind(KindServer, actor.PropsFromProducer(NewServer(cfg), opts...))
 }
