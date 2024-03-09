@@ -25,7 +25,7 @@ type Endpoint struct {
 	ActiveDeploymentID uuid.UUID         `json:"activeDeploymentId"`
 }
 
-func NewEnpoint(name string, runtime string, environment map[string]string) (*Endpoint, error) {
+func NewEndpoint(name string, runtime string, environment map[string]string) (*Endpoint, error) {
 	if !_isValidRuntime(runtime) {
 		return nil, errors.ErrInvalidRuntime
 	}
@@ -37,6 +37,7 @@ func NewEnpoint(name string, runtime string, environment map[string]string) (*En
 		CreatedAt:          time.Now().UnixMicro(),
 		ActiveDeploymentID: uuid.Nil,
 		Environment:        environment,
+		Runtime:            runtime,
 	}
 	return endpoint, nil
 }
