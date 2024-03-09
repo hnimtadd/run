@@ -123,7 +123,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(pathParts)
 	innerURL := ""
 	if len(pathParts) > 2 {
-		innerURL = fmt.Sprintf("/%s", strings.Join(pathParts[2:len(pathParts)-1], "/"))
+		innerURL = fmt.Sprintf("/%s", strings.Join(pathParts[2:], "/"))
 	}
 
 	var (
