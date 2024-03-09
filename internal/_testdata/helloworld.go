@@ -6,7 +6,7 @@ import (
 	"github.com/hnimtadd/run/sdk"
 )
 
-func handle(w http.ResponseWriter, r *http.Request) {
+func handle(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("Hello world!"))
 }
