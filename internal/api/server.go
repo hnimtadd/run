@@ -37,7 +37,7 @@ func (s *Server) HandleCreateEndpoint(w http.ResponseWriter, r *http.Request) er
 	}
 	defer func() { _ = r.Body.Close() }()
 
-	endpoint, err := types.NewEnpoint(params.Name, params.Runtime, params.Environment)
+	endpoint, err := types.NewEndpoint(params.Name, params.Runtime, params.Environment)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 	}
