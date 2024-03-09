@@ -13,4 +13,7 @@ build_example:
 	@GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go
 	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/helloworld.wasm internal/_testdata/helloworld.go
 
-.PHONY: build run gen test build_example
+go_lint:
+	@golangci-lint run  ./...
+
+.PHONY: build run gen test build_example go_lint
