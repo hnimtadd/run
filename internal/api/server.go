@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/hnimtadd/run/internal/settings"
 	"github.com/hnimtadd/run/internal/store"
@@ -47,6 +48,13 @@ func (s *Server) HandleCreateEndpoint(w http.ResponseWriter, r *http.Request) er
 	return utils.WriteJSON(w, http.StatusOK, endpoint)
 }
 
+type Deployment struct {
+	ID         string `json:"id"`
+	Hash       string `json:"hash"`
+	EndpointID string `json:"endpointID"`
+	Created    string `json:"createdAt"`
+}
+
 func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
 	fmt.Println("get endpoint id", endpointID)
@@ -66,6 +74,15 @@ func (s *Server) HandleGetEndpoints(w http.ResponseWriter, _ *http.Request) erro
 	}
 
 	return utils.WriteJSON(w, http.StatusOK, endpoints)
+}
+
+func FromInternalDeployment(d types.Deployment) Deployment {
+	return Deployment{
+		ID:         d.ID.String(),
+		Hash:       d.Hash,
+		EndpointID: d.EndpointID.String(),
+		Created:    time.Unix(d.CreatedAt, 0).String(),
+	}
 }
 
 func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) error {
@@ -103,16 +120,36 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	if err := s.store.CreateDeployment(deployment); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	return utils.WriteJSON(w, http.StatusOK, deployment)
+	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(*deployment))
 }
 
-func (s *Server) HandleGetDeploymentsOfEndpoint(_ http.ResponseWriter, _ *http.Request) error {
-	return nil
+func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.Request) error {
+	endpointID := chi.URLParam(r, "id")
+
+	if _, err := s.store.GetEndpointByID(endpointID); err != nil {
+		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
+	}
+
+	deployments, err := s.store.GetDeploymentByEndpointID(endpointID)
+	if err != nil {
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
+	}
+	var d []Deployment
+	for _, deployment := range deployments {
+		d = append(d, FromInternalDeployment(*deployment))
+	}
+	return utils.WriteJSON(w, http.StatusOK, d)
 }
 
-// HandleGetDeployment TODO: get deployment from store, exclude Blob
-func (s *Server) HandleGetDeployment(_ http.ResponseWriter, _ *http.Request) error {
-	return nil
+func (s *Server) HandleGetDeployment(w http.ResponseWriter, r *http.Request) error {
+	deploymentID := chi.URLParam(r, "id")
+
+	deployment, err := s.store.GetDeploymentByID(deploymentID)
+	if err != nil {
+		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
+	}
+
+	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(*deployment))
 }
 
 func handleStatus(w http.ResponseWriter, _ *http.Request) error {
@@ -135,7 +172,7 @@ func (s *Server) InitRoute() {
 	s.router.Get("/endpoint/{id}", makeAPIHandler(s.HandleGetEndpointByID))
 	s.router.Post("/endpoint/{id}/deploy", makeAPIHandler(s.HandlePostDeployment))
 	s.router.Get("/endpoint/{id}/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
-	s.router.Get("/deploy/{id}", makeAPIHandler(s.HandleGetDeployment))
+	s.router.Get("/deployment/{id}", makeAPIHandler(s.HandleGetDeployment))
 }
 
 func (s *Server) ListenAndServe(addr string) error {

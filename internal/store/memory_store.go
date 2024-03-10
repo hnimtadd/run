@@ -120,6 +120,24 @@ func (m *MemoryStore) GetDeployment(deploymentID string) (*types.Deployment, err
 	return deploy, nil
 }
 
+func (m *MemoryStore) GetDeploymentByEndpointID(endpointID string) ([]*types.Deployment, error) {
+	endpointUID, err := uuid.Parse(endpointID)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	var deployments []*types.Deployment
+	for _, deployment := range m.deploys {
+		if deployment.EndpointID == endpointUID {
+			deployments = append(deployments, deployment)
+		}
+	}
+	m.mu.Unlock()
+
+	return deployments, nil
+}
+
 func NewMemoryStore() Store {
 	return &MemoryStore{
 		deploys:   make(map[uuid.UUID]*types.Deployment),
