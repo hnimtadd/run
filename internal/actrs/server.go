@@ -121,10 +121,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path = strings.TrimSuffix(path, "/")
 	pathParts := strings.Split(path, "/")
 	fmt.Println(pathParts)
-	innerURL := ""
+	innerURL := "/"
 	if len(pathParts) > 2 {
 		innerURL = fmt.Sprintf("/%s", strings.Join(pathParts[2:], "/"))
 	}
+	fmt.Println("innerURL", innerURL)
 
 	var (
 		deploy   *types.Deployment
@@ -196,13 +197,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rspCh := make(chan *pb.HTTPResponse, 1)
 	reqMessage := message.NewRequestMessage(req, rspCh)
-	// TODO: currently rootActor could pass the request to the server
-	// consider using cluster
-
-	if err != nil {
-		_ = utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
-		return
-	}
 
 	s.ctx.Send(s.self, reqMessage)
 	fmt.Println("waiting for response...")

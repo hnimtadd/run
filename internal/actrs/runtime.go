@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/hnimtadd/run/internal/runtime"
 	"github.com/hnimtadd/run/internal/shared"
 	"github.com/hnimtadd/run/internal/store"
+	"github.com/hnimtadd/run/internal/types"
 	"github.com/hnimtadd/run/pb/v1"
 
 	"github.com/asynkron/protoactor-go/actor"
@@ -22,21 +24,25 @@ import (
 type Runtime struct {
 	started      time.Time
 	store        store.Store
+	logStore     store.LogStore
 	cache        store.ModCacher
 	runtime      *runtime.Runtime
 	stdout       *bytes.Buffer
 	managerPID   *actor.PID
 	deploymentID uuid.UUID
+	_format      types.LogFormat
 }
 
 func (r *Runtime) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
-		fmt.Print("booted runtime at", ctx.Self().Id)
+		fmt.Println("booted runtime at", ctx.Self().Id)
 		r.started = time.Now()
+
 	case *actor.Stopped:
 		timeUsed := time.Since(r.started)
 		fmt.Println("stopped runtime", timeUsed.Seconds())
+
 	case *pb.HTTPRequest:
 		fmt.Println("runtime handling request", "request_id", msg.Id)
 		if r.runtime == nil {
@@ -45,6 +51,7 @@ func (r *Runtime) Receive(ctx actor.Context) {
 			}
 		}
 		r.managerPID = ctx.Sender()
+
 		// Handle the HTTP request that is forwarded from the WASM server actor.
 		r.Handle(ctx, msg)
 	}
@@ -57,65 +64,80 @@ func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
 	}
 
 	r.deploymentID = deploy.ID
+	r._format = deploy.Format
 	modCache, err := r.cache.Get(deploy.ID)
 	if err != nil {
 		fmt.Println("cache not hit")
 		modCache = wazero.NewCompilationCache()
 	}
-
 	r.stdout = new(bytes.Buffer)
+
 	args := runtime.Args{
-		Cache:        modCache,
-		DeploymentID: deploy.ID,
-		Engine:       msg.Runtime,
 		Stdout:       r.stdout,
+		DeploymentID: deploy.ID,
 		Blob:         deploy.Blob,
+		Engine:       msg.Runtime,
+		Cache:        modCache,
 	}
 
 	run, err := runtime.New(context.Background(), args)
 	if err != nil {
 		return err
 	}
+
 	r.runtime = run
 
-	go func() {
-		_ = r.cache.Put(deploy.ID, modCache)
-	}()
+	err = r.cache.Put(deploy.ID, modCache)
+	if err != nil {
+		log.Println("cannot put cache", err)
+	}
 	return nil
 }
 
-func (r *Runtime) Handle(ctx actor.Context, msg *pb.HTTPRequest) {
-	if r.deploymentID != uuid.MustParse(msg.DeploymentId) {
-		responseError(ctx, http.StatusInternalServerError, "deploymentID must match with runtime deployment ID", msg.Id)
+func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
+	if r.deploymentID != uuid.MustParse(req.DeploymentId) {
+		responseError(ctx, http.StatusInternalServerError, "deploymentID must match with runtime deployment ID", req.Id)
 		return
 	}
 
-	bufBytes, err := proto.Marshal(msg)
+	bufBytes, err := proto.Marshal(req)
 	if err != nil {
-		responseError(ctx, http.StatusInternalServerError, "cannot marshal request", msg.Id)
+		responseError(ctx, http.StatusInternalServerError, "cannot marshal request", req.Id)
 		return
 	}
 
-	// TODO: clean this
-	var args []string
-
-	req := bytes.NewReader(bufBytes)
-	if err := r.runtime.Invoke(req, msg.GetEnv(), args...); err != nil {
-		// log error
-		responseError(ctx, http.StatusInternalServerError, "invoke error: "+err.Error(), msg.Id)
+	if err := r.runtime.Invoke(bytes.NewReader(bufBytes), req.GetEnv()); err != nil {
+		// request_log.go error
+		responseError(ctx, http.StatusInternalServerError, "invoke error: "+err.Error(), req.Id)
 		return
 	}
 
-	// TODO: return logs from sandbox
-	status, body, err := shared.ParseStdout(r.stdout)
+	logs, body, status, err := shared.ParseStdout(r.stdout)
 	if err != nil {
-		responseError(ctx, http.StatusInternalServerError, "cannot parse output"+err.Error(), msg.Id)
+		fmt.Println("cannot parse output "+err.Error(), req.Id)
+		responseError(ctx, http.StatusInternalServerError, "cannot parse output "+err.Error(), req.Id)
 		return
 	}
+
 	rsp := &pb.HTTPResponse{
 		Body:      body,
 		Code:      int32(status),
-		RequestId: msg.Id,
+		RequestId: req.Id,
+	}
+
+	// TODO: runtime metrics, write request_log.go to metric server
+	lines, err := shared.ParseLog(logs)
+	if err == nil {
+		reqLogs := &types.RequestLog{
+			DeploymentID: r.deploymentID,
+			RequestID:    uuid.MustParse(req.Id),
+			Contents:     lines,
+			CreatedAt:    time.Now().Unix(),
+		}
+		if err := r.logStore.AppendLog(reqLogs); err != nil {
+			log.Println("cannot append request to server", err)
+		}
+		// should not response error here, should switch to string request_log.go
 	}
 
 	// TODO: in the future, we should track the runtime metric of the request (duration, status)
@@ -138,8 +160,9 @@ func responseError(ctx actor.Context, code int32, msg string, id string) {
 func NewRuntime(cfg *RuntimeConfig) actor.Producer {
 	return func() actor.Actor {
 		return &Runtime{
-			store: cfg.Store,
-			cache: cfg.Cache,
+			store:    cfg.Store,
+			cache:    cfg.Cache,
+			logStore: cfg.LogStore,
 		}
 	}
 }
@@ -147,8 +170,9 @@ func NewRuntime(cfg *RuntimeConfig) actor.Producer {
 var KindRuntime = "kind-runtime"
 
 type RuntimeConfig struct {
-	Store store.Store
-	Cache store.ModCacher
+	Store    store.Store
+	LogStore store.LogStore
+	Cache    store.ModCacher
 }
 
 func NewRuntimeKind(cfg *RuntimeConfig, opts ...actor.PropsOption) *cluster.Kind {
