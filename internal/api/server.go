@@ -120,7 +120,7 @@ func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.R
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	var d []map[string]any
+	var d []Deployment
 	for _, deployment := range deployments {
 		d = append(d, FromInternalDeployment(deployment))
 	}
@@ -140,7 +140,7 @@ func (s *Server) HandleGetDeployment(w http.ResponseWriter, r *http.Request) err
 
 func (s *Server) HandleGetLogOfRequest(w http.ResponseWriter, r *http.Request) error {
 	requestID := chi.URLParam(r, "id")
-	log, err := s.logStore.GetLogByID(requestID)
+	log, err := s.logStore.GetLogByRequestID(requestID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
@@ -196,9 +196,9 @@ func (s *Server) InitRoute() {
 	s.router.Post("/endpoint/{id}/deploy", makeAPIHandler(s.HandlePostDeployment))
 	s.router.Get("/endpoint/{id}/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
 	s.router.Get("/deployment/{id}", makeAPIHandler(s.HandleGetDeployment))
-	s.router.Get("/deployment/{id}/request_log.go", makeAPIHandler(s.HandleGetLogOfDeployment))
+	s.router.Get("/deployment/{id}/log", makeAPIHandler(s.HandleGetLogOfDeployment))
 
-	s.router.Get("/request_log.go/{id}", makeAPIHandler(s.HandleGetLogOfRequest))
+	s.router.Get("/request/{id}/log", makeAPIHandler(s.HandleGetLogOfRequest))
 }
 
 func (s *Server) ListenAndServe(addr string) error {
@@ -214,28 +214,37 @@ type Deployment struct {
 	Created    string `json:"createdAt"`
 }
 
-func FromInternalDeployment(d *types.Deployment) map[string]any {
-	return map[string]any{
-		"id":         d.ID.String(),
-		"hash":       d.Hash,
-		"endpointID": d.EndpointID.String(),
-		"createdAt":  time.Unix(d.CreatedAt, 0).String(),
+func FromInternalDeployment(d *types.Deployment) Deployment {
+	return Deployment{
+		ID:         d.ID.String(),
+		Hash:       d.Hash,
+		EndpointID: d.EndpointID.String(),
+		Created:    time.Unix(d.CreatedAt, 0).String(),
 	}
 }
 
-func FromInternalEndpoint(endpoint *types.Endpoint, deployments []*types.Deployment) map[string]any {
-	var deployHistory []map[string]any
+type Endpoint struct {
+	ID                 string            `json:"id,omitempty"`
+	Name               string            `json:"name,omitempty"`
+	Runtime            string            `json:"runtime,omitempty"`
+	Environment        map[string]string `json:"environment,omitempty"`
+	ActiveDeploymentID string            `json:"activeDeploymentID,omitempty"`
+	DeployHistory      []Deployment      `json:"deployHistory,omitempty"`
+	CreatedAt          string            `json:"createdAt,omitempty"`
+}
+
+func FromInternalEndpoint(endpoint *types.Endpoint, deployments []*types.Deployment) Endpoint {
+	var deployHistory []Deployment
 	for _, deployment := range deployments {
 		deployHistory = append(deployHistory, FromInternalDeployment(deployment))
 	}
-
-	return map[string]any{
-		"id":                 endpoint.ID.String(),
-		"name":               endpoint.Name,
-		"runtime":            endpoint.Runtime,
-		"environment":        endpoint.Environment,
-		"activeDeploymentID": endpoint.ActiveDeploymentID.String(),
-		"deployHistory":      deployHistory,
-		"createdAt":          time.Unix(endpoint.CreatedAt, 0).String(),
+	return Endpoint{
+		ID:                 endpoint.ID.String(),
+		Name:               endpoint.Name,
+		Runtime:            endpoint.Runtime,
+		Environment:        endpoint.Environment,
+		ActiveDeploymentID: endpoint.ActiveDeploymentID.String(),
+		DeployHistory:      deployHistory,
+		CreatedAt:          time.Unix(endpoint.CreatedAt, 0).String(),
 	}
 }
