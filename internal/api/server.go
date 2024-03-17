@@ -45,13 +45,6 @@ func (s *Server) HandleCreateEndpoint(w http.ResponseWriter, r *http.Request) er
 	return utils.WriteJSON(w, http.StatusOK, endpoint)
 }
 
-type Deployment struct {
-	ID         string `json:"id"`
-	Hash       string `json:"hash"`
-	EndpointID string `json:"endpointID"`
-	Created    string `json:"createdAt"`
-}
-
 func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
 	fmt.Println("get endpoint id", endpointID)
@@ -61,7 +54,12 @@ func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) e
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	return utils.WriteJSON(w, http.StatusOK, endpoint)
+	deployments, err := s.store.GetDeploymentByEndpointID(endpointID)
+	if err != nil {
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
+	}
+
+	return utils.WriteJSON(w, http.StatusOK, FromInternalEndpoint(endpoint, deployments))
 }
 
 func (s *Server) HandleGetEndpoints(w http.ResponseWriter, _ *http.Request) error {
@@ -71,15 +69,6 @@ func (s *Server) HandleGetEndpoints(w http.ResponseWriter, _ *http.Request) erro
 	}
 
 	return utils.WriteJSON(w, http.StatusOK, endpoints)
-}
-
-func FromInternalDeployment(d types.Deployment) Deployment {
-	return Deployment{
-		ID:         d.ID.String(),
-		Hash:       d.Hash,
-		EndpointID: d.EndpointID.String(),
-		Created:    time.Unix(d.CreatedAt, 0).String(),
-	}
 }
 
 func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) error {
@@ -117,7 +106,7 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	if err := s.store.CreateDeployment(deployment); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(*deployment))
+	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(deployment))
 }
 
 func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.Request) error {
@@ -131,9 +120,9 @@ func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.R
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	var d []Deployment
+	var d []map[string]any
 	for _, deployment := range deployments {
-		d = append(d, FromInternalDeployment(*deployment))
+		d = append(d, FromInternalDeployment(deployment))
 	}
 	return utils.WriteJSON(w, http.StatusOK, d)
 }
@@ -146,7 +135,7 @@ func (s *Server) HandleGetDeployment(w http.ResponseWriter, r *http.Request) err
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(*deployment))
+	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(deployment))
 }
 
 func (s *Server) HandleGetLogOfRequest(w http.ResponseWriter, r *http.Request) error {
@@ -216,4 +205,37 @@ func (s *Server) ListenAndServe(addr string) error {
 	s.InitRoute()
 	fmt.Printf("Listen and serve api at: %v\n", addr)
 	return http.ListenAndServe(addr, s.router)
+}
+
+type Deployment struct {
+	ID         string `json:"id"`
+	Hash       string `json:"hash"`
+	EndpointID string `json:"endpointID"`
+	Created    string `json:"createdAt"`
+}
+
+func FromInternalDeployment(d *types.Deployment) map[string]any {
+	return map[string]any{
+		"id":         d.ID.String(),
+		"hash":       d.Hash,
+		"endpointID": d.EndpointID.String(),
+		"createdAt":  time.Unix(d.CreatedAt, 0).String(),
+	}
+}
+
+func FromInternalEndpoint(endpoint *types.Endpoint, deployments []*types.Deployment) map[string]any {
+	var deployHistory []map[string]any
+	for _, deployment := range deployments {
+		deployHistory = append(deployHistory, FromInternalDeployment(deployment))
+	}
+
+	return map[string]any{
+		"id":                 endpoint.ID.String(),
+		"name":               endpoint.Name,
+		"runtime":            endpoint.Runtime,
+		"environment":        endpoint.Environment,
+		"activeDeploymentID": endpoint.ActiveDeploymentID.String(),
+		"deployHistory":      deployHistory,
+		"createdAt":          time.Unix(endpoint.CreatedAt, 0).String(),
+	}
 }
