@@ -3,6 +3,7 @@ package runtime_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -22,7 +23,7 @@ func TestRuntime_InvokeGoCode(t *testing.T) {
 	require.Nil(t, err)
 
 	req := &pb.HTTPRequest{
-		Method: "get",
+		Method: "GET",
 		Url:    "/",
 		Body:   nil,
 	}
@@ -40,11 +41,17 @@ func TestRuntime_InvokeGoCode(t *testing.T) {
 	r, err := runtime.New(context.Background(), args)
 	require.Nil(t, err)
 	require.Nil(t, r.Invoke(bytes.NewReader(breq), nil))
-	status, res, err := shared.ParseStdout(out)
+
+	log, body, status, err := shared.ParseStdout(out)
 	require.Nil(t, err)
 	require.Equal(t, http.StatusOK, status)
-	require.Equal(t, "Hello world!", string(res))
+	require.Equal(t, "Hello world!", string(body))
 	require.Nil(t, r.Close())
+	lines, err := shared.ParseLog(log)
+	fmt.Println(lines)
+	require.Nil(t, err)
+	require.Equal(t, 1, len(lines))
+	require.Equal(t, lines[0], "hello, this is a request_log.go")
 }
 
 func TestRuntime_ModifierPassedInModuleCache(t *testing.T) {
@@ -74,4 +81,41 @@ func TestRuntime_ModifierPassedInModuleCache(t *testing.T) {
 	sr, err := runtime.New(context.Background(), secondArgs)
 	require.Nil(t, err)
 	require.NotNil(t, sr)
+}
+
+func TestRuntime_InvokeGoCodeExample(t *testing.T) {
+	b, err := os.ReadFile("./../../examples/go/example.wasm")
+	require.Nil(t, err)
+
+	req := &pb.HTTPRequest{
+		Method: "GET",
+		Url:    "/",
+		Body:   nil,
+	}
+	breq, err := proto.Marshal(req)
+	require.Nil(t, err)
+
+	out := &bytes.Buffer{}
+	args := runtime.Args{
+		Stdout:       out,
+		DeploymentID: uuid.New(),
+		Blob:         b,
+		Engine:       "go",
+		Cache:        wazero.NewCompilationCache(),
+	}
+
+	r, err := runtime.New(context.Background(), args)
+	require.Nil(t, err)
+	require.Nil(t, r.Invoke(bytes.NewReader(breq), nil))
+
+	log, body, status, err := shared.ParseStdout(out)
+	require.Nil(t, err)
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, "login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" />", string(body))
+	require.Nil(t, r.Close())
+	lines, err := shared.ParseLog(log)
+	fmt.Println(lines)
+	require.Nil(t, err)
+	require.Equal(t, 1, len(lines))
+	require.Equal(t, lines[0], "enter index")
 }
