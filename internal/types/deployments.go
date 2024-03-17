@@ -14,6 +14,7 @@ type Deployment struct {
 	CreatedAt  int64     `json:"createdAt"`
 	ID         uuid.UUID `json:"id"`
 	EndpointID uuid.UUID `json:"endpointID"`
+	Format     LogFormat `json:"logFormat"`
 }
 
 func NewDeployment(endpoint *Endpoint, blob []byte) (*Deployment, error) {
