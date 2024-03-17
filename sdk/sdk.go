@@ -60,6 +60,7 @@ func Handle(h http.Handler) {
 	}
 
 	h.ServeHTTP(w, r)
+	_, _ = io.Copy(os.Stdout, os.Stderr)
 	// write response information to sandbox stdout, using for check valid response
 	_, _ = os.Stdout.Write(w.buffer.Bytes())
 
