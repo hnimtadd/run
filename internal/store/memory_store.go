@@ -2,6 +2,7 @@ package store
 
 import (
 	"sync"
+	"time"
 
 	"github.com/hnimtadd/run/internal/errors"
 	"github.com/hnimtadd/run/internal/types"
@@ -9,10 +10,103 @@ import (
 	"github.com/google/uuid"
 )
 
+var (
+	_ LogStore = &MemoryStore{}
+	_ Store    = &MemoryStore{}
+)
+
 type MemoryStore struct {
 	mu        sync.RWMutex
 	deploys   map[uuid.UUID]*types.Deployment
 	endpoints map[uuid.UUID]*types.Endpoint
+	logs      map[uuid.UUID]map[uuid.UUID]*types.RequestLog // map deploymentID with request_id and request_log.go
+}
+
+func (m *MemoryStore) AppendLog(log *types.RequestLog) error {
+	m.mu.Lock()
+	_, ok := m.logs[log.DeploymentID]
+	m.mu.Unlock()
+
+	if !ok {
+		m.mu.RLock()
+		m.logs[log.DeploymentID] = make(map[uuid.UUID]*types.RequestLog)
+		m.mu.RUnlock()
+	}
+
+	m.mu.Lock()
+	_, ok = m.logs[log.DeploymentID][log.RequestID]
+	m.mu.Unlock()
+
+	if ok {
+		return errors.ErrDocumentDuplicated
+	}
+
+	m.mu.RLock()
+	m.logs[log.DeploymentID][log.RequestID] = log
+	m.mu.RUnlock()
+	return nil
+}
+
+func (m *MemoryStore) GetLogOfDeployment(deploymentID string) ([]*types.RequestLog, error) {
+	deploymentUUID, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	entry, ok := m.logs[deploymentUUID]
+	m.mu.Unlock()
+	if !ok {
+		return nil, errors.ErrDeploymentNotExisted
+	}
+
+	var eventLogs []*types.RequestLog
+	for _, eventLog := range entry {
+		eventLogs = append(eventLogs, eventLog)
+	}
+	return eventLogs, nil
+}
+
+func (m *MemoryStore) GetLogsOfRequest(deploymentID string, requestID string) (*types.RequestLog, error) {
+	deploymentUUID, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	entry, ok := m.logs[deploymentUUID]
+	m.mu.Unlock()
+	if !ok {
+		return nil, errors.ErrDeploymentNotExisted
+	}
+
+	requestUUID, err := uuid.Parse(requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	log, ok := entry[requestUUID]
+	if !ok {
+		return nil, errors.ErrDocumentNotFound
+	}
+	return log, nil
+}
+
+func (m *MemoryStore) GetLogByID(requestID string) (*types.RequestLog, error) {
+	requestUUID, err := uuid.Parse(requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, entry := range m.logs {
+		log, ok := entry[requestUUID]
+		if ok {
+			return log, nil
+		}
+	}
+	return nil, errors.ErrDocumentNotFound
 }
 
 func (m *MemoryStore) CreateEndpoint(endpoint *types.Endpoint) error {
@@ -22,6 +116,8 @@ func (m *MemoryStore) CreateEndpoint(endpoint *types.Endpoint) error {
 	if existed {
 		return errors.ErrEndpointExisted
 	}
+	now := time.Now()
+	endpoint.CreatedAt = now.Unix()
 	m.mu.RLock()
 	m.endpoints[endpoint.ID] = endpoint
 	m.mu.RUnlock()
@@ -75,7 +171,9 @@ func (m *MemoryStore) GetDeploymentByID(deploymentID string) (*types.Deployment,
 	if err != nil {
 		return nil, err
 	}
+	m.mu.Lock()
 	deployment, existed := m.deploys[uid]
+	m.mu.Unlock()
 	if !existed {
 		return nil, errors.ErrDeploymentNotExisted
 	}
@@ -138,9 +236,10 @@ func (m *MemoryStore) GetDeploymentByEndpointID(endpointID string) ([]*types.Dep
 	return deployments, nil
 }
 
-func NewMemoryStore() Store {
+func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		deploys:   make(map[uuid.UUID]*types.Deployment),
 		endpoints: make(map[uuid.UUID]*types.Endpoint),
+		logs:      make(map[uuid.UUID]map[uuid.UUID]*types.RequestLog),
 	}
 }
