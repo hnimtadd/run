@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/hnimtadd/run/sdk"
+	"fmt"
 	"net/http"
+
+	"github.com/hnimtadd/run/sdk"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -10,16 +12,19 @@ import (
 func handleLogin(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("hello from the login handler YADA"))
+	fmt.Println("enter login")
 }
 
 func handleDashboard(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("hello from the dashboard handler"))
+	fmt.Println("enter dashboard")
 }
 
 func handleIndex(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" />"))
+	fmt.Println("enter index")
 }
 
 func main() {
@@ -27,5 +32,6 @@ func main() {
 	router.Get("/dashboard", handleDashboard)
 	router.Get("/login", handleLogin)
 	router.Get("/", handleIndex)
+
 	sdk.Handle(router)
 }
