@@ -25,7 +25,7 @@ type (
 	}
 	LogStore interface {
 		AppendLog(log *types.RequestLog) error
-		GetLogByID(requestID string) (*types.RequestLog, error)
+		GetLogByRequestID(requestID string) (*types.RequestLog, error)
 		GetLogsOfRequest(deploymentID string, requestID string) (*types.RequestLog, error)
 		GetLogOfDeployment(deploymentID string) ([]*types.RequestLog, error)
 	}

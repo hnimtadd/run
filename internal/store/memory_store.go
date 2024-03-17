@@ -92,7 +92,7 @@ func (m *MemoryStore) GetLogsOfRequest(deploymentID string, requestID string) (*
 	return log, nil
 }
 
-func (m *MemoryStore) GetLogByID(requestID string) (*types.RequestLog, error) {
+func (m *MemoryStore) GetLogByRequestID(requestID string) (*types.RequestLog, error) {
 	requestUUID, err := uuid.Parse(requestID)
 	if err != nil {
 		return nil, err
