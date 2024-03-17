@@ -16,13 +16,10 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// TODO: add get,update endpoint, upload deployment.
-
-const _24k = (1 >> 10) * 24
-
 type Server struct {
-	store  store.Store
-	router *chi.Mux
+	store    store.Store
+	logStore store.LogStore
+	router   *chi.Mux
 }
 
 type CreateEndpointParams struct {
@@ -92,7 +89,7 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	if err := r.ParseMultipartForm(_24k); err != nil {
+	if err := r.ParseMultipartForm(settings.MaxBlobSize); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
@@ -152,6 +149,42 @@ func (s *Server) HandleGetDeployment(w http.ResponseWriter, r *http.Request) err
 	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(*deployment))
 }
 
+func (s *Server) HandleGetLogOfRequest(w http.ResponseWriter, r *http.Request) error {
+	requestID := chi.URLParam(r, "id")
+	log, err := s.logStore.GetLogByID(requestID)
+	if err != nil {
+		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
+	}
+	return utils.WriteJSON(w, http.StatusOK, FromInternalRequestLog(log))
+}
+
+func FromInternalRequestLog(log *types.RequestLog) map[string]any {
+	return map[string]any{
+		"requestID":    log.RequestID.String(),
+		"deploymentID": log.RequestID.String(),
+		"logs":         log.Contents,
+		"createdAt":    time.Unix(log.CreatedAt, 0).String(),
+	}
+}
+
+func (s *Server) HandleGetLogOfDeployment(w http.ResponseWriter, r *http.Request) error {
+	deploymentID := chi.URLParam(r, "id")
+	_, err := s.store.GetDeploymentByID(deploymentID)
+	if err != nil {
+		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
+	}
+	logs, err := s.logStore.GetLogOfDeployment(deploymentID)
+	if err != nil {
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
+	}
+	var rspLogs []map[string]any
+	for _, log := range logs {
+		rspLogs = append(rspLogs, FromInternalRequestLog(log))
+	}
+
+	return utils.WriteJSON(w, http.StatusOK, rspLogs)
+}
+
 func handleStatus(w http.ResponseWriter, _ *http.Request) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -159,9 +192,10 @@ func handleStatus(w http.ResponseWriter, _ *http.Request) error {
 	return json.NewEncoder(w).Encode(status)
 }
 
-func NewServer(store store.Store) *Server {
+func NewServer(store store.Store, logStore store.LogStore) *Server {
 	return &Server{
-		store: store,
+		store:    store,
+		logStore: logStore,
 	}
 }
 
@@ -173,6 +207,9 @@ func (s *Server) InitRoute() {
 	s.router.Post("/endpoint/{id}/deploy", makeAPIHandler(s.HandlePostDeployment))
 	s.router.Get("/endpoint/{id}/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
 	s.router.Get("/deployment/{id}", makeAPIHandler(s.HandleGetDeployment))
+	s.router.Get("/deployment/{id}/request_log.go", makeAPIHandler(s.HandleGetLogOfDeployment))
+
+	s.router.Get("/request_log.go/{id}", makeAPIHandler(s.HandleGetLogOfRequest))
 }
 
 func (s *Server) ListenAndServe(addr string) error {
