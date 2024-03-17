@@ -2,6 +2,7 @@ package shared
 
 //
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -9,29 +10,59 @@ import (
 
 var magicLen = 8
 
-func ParseStdout(r io.Reader) (int, []byte, error) {
-	bufBytes, err := io.ReadAll(r)
+func ParseStdout(r io.Reader) (logs []byte, body []byte, status int, err error) {
+	var bufBytes []byte
+	bufBytes, err = io.ReadAll(r)
 	if err != nil {
-		return 0, nil, err
+		return
 	}
 
 	outLen := len(bufBytes)
 	if outLen < magicLen {
-		return 0, nil, fmt.Errorf("expect output have at least 8 magic bytes, actual: %d", len(bufBytes))
+		err = fmt.Errorf("expect output have at least 8 magic bytes, actual: %d", len(bufBytes))
+		return
 	}
 	magicStart := outLen - magicLen
 
-	statusCode := int(binary.LittleEndian.Uint32(bufBytes[magicStart : magicStart+4]))
+	status = int(binary.LittleEndian.Uint32(bufBytes[magicStart : magicStart+4]))
 	bufferLen := int(binary.LittleEndian.Uint32(bufBytes[magicStart+4:]))
 
 	if bufferLen > outLen-magicLen {
-		return 0, nil, fmt.Errorf("expect buffer with len %d, available: %d", bufferLen, len(bufBytes)-magicLen)
+		err = fmt.Errorf("expect buffer with len %d, available: %d", bufferLen, len(bufBytes)-magicLen)
+		return
 	}
+
 	bodyStart := magicStart - bufferLen
-	fmt.Println(bodyStart)
-	body := bufBytes[bodyStart : bodyStart+bufferLen]
-	logs := bufBytes[:bodyStart]
-	fmt.Println(string(logs))
-	fmt.Println(string(body))
-	return statusCode, body, nil
+	body = bufBytes[bodyStart : bodyStart+bufferLen]
+	logs = bufBytes[:bodyStart]
+	return
+}
+
+func read(buf []byte) <-chan string {
+	responseCh := make(chan string)
+	go func() {
+		bufReader := bytes.NewBufferString(string(buf))
+		for {
+			line, err := bufReader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			if len(line) == 0 {
+				continue
+			}
+			responseCh <- line[:len(line)-1]
+		}
+		close(responseCh)
+	}()
+	return responseCh
+}
+
+func ParseLog(log []byte) ([]string, error) {
+	logCh := read(log)
+	var res []string
+	for line := range logCh {
+		res = append(res, line)
+	}
+
+	return res, nil
 }
