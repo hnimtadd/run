@@ -17,12 +17,12 @@ func _isValidRuntime(runtime string) bool {
 }
 
 type Endpoint struct {
-	Environment        map[string]string `json:"environment"`
-	Name               string            `json:"name"`
-	Runtime            string            `json:"runtime"`
-	CreatedAt          int64             `json:"createdAt"`
-	ID                 uuid.UUID         `json:"id"`
-	ActiveDeploymentID uuid.UUID         `json:"activeDeploymentId"`
+	Environment        map[string]string `json:"environment" bson:"environment"`
+	Name               string            `json:"name" bson:"name"`
+	Runtime            string            `json:"runtime" bson:"runtime"`
+	CreatedAt          int64             `json:"createdAt" bson:"createdAt"`
+	ID                 uuid.UUID         `json:"id" bson:"_id"`
+	ActiveDeploymentID uuid.UUID         `json:"activeDeploymentId" bson:"activeDeploymentID"`
 }
 
 func NewEndpoint(name string, runtime string, environment map[string]string) (*Endpoint, error) {

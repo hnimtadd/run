@@ -9,12 +9,12 @@ import (
 )
 
 type Deployment struct {
-	Hash       string    `json:"hash"`
-	Blob       []byte    `json:"blob"`
-	CreatedAt  int64     `json:"createdAt"`
-	ID         uuid.UUID `json:"id"`
-	EndpointID uuid.UUID `json:"endpointID"`
-	Format     LogFormat `json:"logFormat"`
+	Hash       string    `json:"hash" bson:"hash"`
+	Blob       []byte    `json:"blob" bson:"blob"`
+	CreatedAt  int64     `json:"createdAt" bson:"createdAt"`
+	ID         uuid.UUID `json:"id" bson:"_id"`
+	EndpointID uuid.UUID `json:"endpointID" bson:"endpointID"`
+	Format     LogFormat `json:"logFormat" bson:"format"`
 }
 
 func NewDeployment(endpoint *Endpoint, blob []byte) (*Deployment, error) {
