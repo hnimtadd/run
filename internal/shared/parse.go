@@ -1,6 +1,5 @@
 package shared
 
-//
 import (
 	"bytes"
 	"encoding/binary"
@@ -8,9 +7,10 @@ import (
 	"io"
 )
 
-var magicLen = 8
+var magicLen = 4
 
-func ParseStdout(r io.Reader) (logs []byte, body []byte, status int, err error) {
+// ParseStdout returns logs, body, status, err, body is bytes of pb.HTTPResponse
+func ParseStdout(r io.Reader) (logs []byte, body []byte, err error) {
 	var bufBytes []byte
 	bufBytes, err = io.ReadAll(r)
 	if err != nil {
@@ -24,8 +24,7 @@ func ParseStdout(r io.Reader) (logs []byte, body []byte, status int, err error) 
 	}
 	magicStart := outLen - magicLen
 
-	status = int(binary.LittleEndian.Uint32(bufBytes[magicStart : magicStart+4]))
-	bufferLen := int(binary.LittleEndian.Uint32(bufBytes[magicStart+4:]))
+	bufferLen := int(binary.LittleEndian.Uint32(bufBytes[magicStart:]))
 
 	if bufferLen > outLen-magicLen {
 		err = fmt.Errorf("expect buffer with len %d, available: %d", bufferLen, len(bufBytes)-magicLen)
@@ -33,7 +32,7 @@ func ParseStdout(r io.Reader) (logs []byte, body []byte, status int, err error) 
 	}
 
 	bodyStart := magicStart - bufferLen
-	body = bufBytes[bodyStart : bodyStart+bufferLen]
+	body = bufBytes[bodyStart : bodyStart+bufferLen] // body here is pb.HTTPResponse
 	logs = bufBytes[:bodyStart]
 	return
 }

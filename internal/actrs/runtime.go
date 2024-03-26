@@ -112,18 +112,20 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 		return
 	}
 
-	logs, body, status, err := shared.ParseStdout(r.stdout)
+	logs, body, err := shared.ParseStdout(r.stdout)
 	if err != nil {
 		fmt.Println("cannot parse output "+err.Error(), req.Id)
 		responseError(ctx, http.StatusInternalServerError, "cannot parse output "+err.Error(), req.Id)
 		return
 	}
 
-	rsp := &pb.HTTPResponse{
-		Body:      body,
-		Code:      int32(status),
-		RequestId: req.Id,
+	rsp := new(pb.HTTPResponse)
+	if err := proto.Unmarshal(body, rsp); err != nil {
+		fmt.Println("cannot unmarshal output "+err.Error(), req.Id)
+		responseError(ctx, http.StatusInternalServerError, "cannot unmarshal output "+err.Error(), req.Id)
+		return
 	}
+	rsp.RequestId = req.Id
 
 	// TODO: runtime metrics, write request_log.go to metric server
 	lines, err := shared.ParseLog(logs)

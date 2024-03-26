@@ -23,7 +23,8 @@ func handleDashboard(w http.ResponseWriter, _ *http.Request) {
 
 func handleIndex(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" />"))
+	w.Header().Add("Content-Type", "text/html")
+	_, _ = w.Write([]byte("<html> login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" /></html>"))
 	fmt.Println("enter index")
 }
 

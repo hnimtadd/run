@@ -29,7 +29,9 @@ type Runtime struct {
 }
 
 func New(ctx context.Context, args Args) (*Runtime, error) {
-	config := wazero.NewRuntimeConfig().WithCompilationCache(args.Cache).WithCloseOnContextDone(true)
+	config := wazero.NewRuntimeConfig().
+		WithCompilationCache(args.Cache).
+		WithCloseOnContextDone(true)
 	r := wazero.NewRuntimeWithConfig(ctx, config)
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
@@ -55,10 +57,6 @@ func (r *Runtime) Invoke(stdin io.Reader, env map[string]string, args ...string)
 		WithStdin(stdin).
 		WithStdout(r.stdout).
 		WithArgs(args...)
-
-	//.
-	//WithStderr(os.Stderr).
-	//WithArgs(args...)
 
 	for key, value := range env {
 		modConf = modConf.WithEnv(key, value)

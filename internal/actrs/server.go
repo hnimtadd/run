@@ -203,7 +203,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rsp := <-rspCh
 
 	w.WriteHeader(int(rsp.Code))
+	for key, val := range rsp.Header {
+		for _, field := range val.Fields {
+			fmt.Println(key, field)
+			w.Header().Add(key, field)
+		}
+	}
 	_, _ = w.Write(rsp.Body)
+	fmt.Println("done")
 }
 
 func NewServer(cfg *ServerConfig) actor.Producer {

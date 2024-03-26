@@ -42,10 +42,14 @@ func TestRuntime_InvokeGoCode(t *testing.T) {
 	require.Nil(t, err)
 	require.Nil(t, r.Invoke(bytes.NewReader(breq), nil))
 
-	log, body, status, err := shared.ParseStdout(out)
+	log, body, err := shared.ParseStdout(out)
 	require.Nil(t, err)
-	require.Equal(t, http.StatusOK, status)
-	require.Equal(t, "Hello world!", string(body))
+
+	rsp := new(pb.HTTPResponse)
+	require.Nil(t, proto.Unmarshal(body, rsp))
+
+	require.Equal(t, http.StatusOK, int(rsp.Code))
+	require.Equal(t, "Hello world!", string(rsp.Body))
 	require.Nil(t, r.Close())
 	lines, err := shared.ParseLog(log)
 	fmt.Println(lines)
@@ -108,10 +112,13 @@ func TestRuntime_InvokeGoCodeExample(t *testing.T) {
 	require.Nil(t, err)
 	require.Nil(t, r.Invoke(bytes.NewReader(breq), nil))
 
-	log, body, status, err := shared.ParseStdout(out)
+	log, body, err := shared.ParseStdout(out)
 	require.Nil(t, err)
-	require.Equal(t, http.StatusOK, status)
-	require.Equal(t, "login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" />", string(body))
+	rsp := new(pb.HTTPResponse)
+	require.Nil(t, proto.Unmarshal(body, rsp))
+
+	require.Equal(t, http.StatusOK, int(rsp.Code))
+	require.Equal(t, "login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" />", string(rsp.Body))
 	require.Nil(t, r.Close())
 	lines, err := shared.ParseLog(log)
 	fmt.Println(lines)
