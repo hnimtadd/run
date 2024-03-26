@@ -22,4 +22,5 @@ message HTTPResponse {
   bytes body = 1;
   int32 code = 2;
   string request_id = 3;
+  map<string, HeaderFields> header = 4;
 }
