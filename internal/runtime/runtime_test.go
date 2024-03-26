@@ -118,7 +118,7 @@ func TestRuntime_InvokeGoCodeExample(t *testing.T) {
 	require.Nil(t, proto.Unmarshal(body, rsp))
 
 	require.Equal(t, http.StatusOK, int(rsp.Code))
-	require.Equal(t, "login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" />", string(rsp.Body))
+	require.Equal(t, "<html>login page: <a href=\"/login\" /><br />Dashboard page: <a href=\"/dashboard\" /></html>", string(rsp.Body))
 	require.Nil(t, r.Close())
 	lines, err := shared.ParseLog(log)
 	fmt.Println(lines)
