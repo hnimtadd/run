@@ -22,6 +22,26 @@ type MemoryStore struct {
 	logs      map[uuid.UUID]map[uuid.UUID]*types.RequestLog // map deploymentID with request_id and request_log.go
 }
 
+func (m *MemoryStore) UpdateActiveDeploymentOfEndpoint(endpointID string, deploymentID string) error {
+	endpointUID, err := uuid.Parse(endpointID)
+	if err != nil {
+		return err
+	}
+	deploymentUID, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	_, ok := m.endpoints[endpointUID]
+	m.mu.Unlock()
+	if !ok {
+		return errors.ErrDocumentNotFound
+	}
+	m.endpoints[endpointUID].ActiveDeploymentID = deploymentUID
+	return nil
+}
+
 func (m *MemoryStore) AppendLog(log *types.RequestLog) error {
 	m.mu.Lock()
 	_, ok := m.logs[log.DeploymentID]
@@ -199,7 +219,6 @@ func (m *MemoryStore) CreateDeployment(deploy *types.Deployment) error {
 	}
 	m.mu.RLock()
 	m.deploys[deploy.ID] = deploy
-	m.endpoints[deploy.EndpointID].ActiveDeploymentID = deploy.ID
 	m.mu.RUnlock()
 	return nil
 }

@@ -12,6 +12,7 @@ type (
 		UpdateEndpoint(endpointID string, params UpdateEndpointParams) error
 		GetEndpointByID(endpointID string) (*types.Endpoint, error)
 		GetEndpoints() ([]*types.Endpoint, error)
+		UpdateActiveDeploymentOfEndpoint(endpointID string, deploymentID string) error
 
 		CreateDeployment(deploy *types.Deployment) error
 		GetDeploymentByID(deploymentID string) (*types.Deployment, error)

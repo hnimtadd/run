@@ -22,6 +22,23 @@ type MongoStore struct {
 	DeploymentCol *mongo.Collection
 }
 
+func (m MongoStore) UpdateActiveDeploymentOfEndpoint(endpointID string, deploymentID string) error {
+	endpointUID, err := uuid.Parse(endpointID)
+	if err != nil {
+		return err
+	}
+	deploymentUID, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"_id": endpointUID}
+	update := bson.M{"$set": bson.M{"activeDeploymentID": deploymentUID}}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	_, err = m.DeploymentCol.UpdateOne(ctx, filter, update)
+	return err
+}
+
 func (m MongoStore) CreateEndpoint(endpoint *types.Endpoint) error {
 	_, err := m.EndpointCol.InsertOne(context.Background(), endpoint)
 	return err
