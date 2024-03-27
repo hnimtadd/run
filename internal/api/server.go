@@ -98,7 +98,8 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "given blob exceed maxsize"})
 	}
 
-	deployment, err := types.NewDeployment(endpoint, buf.Bytes())
+	// TODO: fix, currently, if user need to update new environment value to the request, we must extract it from the body.
+	deployment, err := types.NewDeployment(endpoint, buf.Bytes(), endpoint.Environment)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
@@ -106,6 +107,10 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	if err := s.store.CreateDeployment(deployment); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
+	if err := s.store.UpdateEndpoint(endpoint.ID.String(), store.UpdateEndpointParams{ActiveDeployID: deployment.ID, Environment: deployment.Environment}); err != nil {
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
+	}
+
 	return utils.WriteJSON(w, http.StatusOK, FromInternalDeployment(deployment))
 }
 

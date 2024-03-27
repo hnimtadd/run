@@ -32,12 +32,13 @@ func (m MongoStore) UpdateEndpoint(endpointID string, params UpdateEndpointParam
 	if err != nil {
 		return err
 	}
-	if endpoint.ActiveDeploymentID.String() != params.ActiveDeployID.String() {
-		return errors.ErrRequestInvalidDeploymentID
+	if endpoint.ActiveDeploymentID.String() == params.ActiveDeployID.String() {
+		return errors.ErrDocumentDuplicated
 	}
 
 	filter := bson.M{"_id": endpoint.ID}
-	update := bson.M{"$set": bson.M{"environment": params.Environment}}
+	// TODO: this should append and replace duplicated field from current endpoint with active deployment endpoint
+	update := bson.M{"$set": bson.M{"activeDeploymentID": params.ActiveDeployID}}
 	return m.EndpointCol.FindOneAndUpdate(context.Background(), filter, update).Err()
 }
 
