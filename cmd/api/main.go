@@ -6,16 +6,18 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/hnimtadd/run/internal/api"
-	"github.com/hnimtadd/run/internal/store"
-	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/hnimtadd/run/internal/api"
+	"github.com/hnimtadd/run/internal/store"
+
+	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {

@@ -33,7 +33,6 @@ func main() {
 	st := store.NewMemoryStore()
 	MockStore(st)
 	mc := store.NewMemoryModCacher()
-
 	system := actor.NewActorSystem()
 	defer system.Shutdown()
 	provider := automanaged.New()
@@ -74,6 +73,7 @@ func main() {
 	go func() {
 		panic(apiServer.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("API_ADDR"))))
 	}()
+
 	exitCh := make(chan os.Signal, 1)
 	signal.Notify(exitCh, os.Interrupt)
 	signal.Notify(exitCh, syscall.SIGTERM)
