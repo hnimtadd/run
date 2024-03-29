@@ -2,10 +2,10 @@ name: Go CI
 
 on:
   push:
-    braches:
+    branches:
       - "**"
   pull_request:
-    braches:
+    branches:
       - "**"
 permissions:
   contents: read
