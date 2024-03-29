@@ -23,19 +23,22 @@ type MongoStore struct {
 }
 
 func (m MongoStore) UpdateActiveDeploymentOfEndpoint(endpointID string, deploymentID string) error {
-	endpointUID, err := uuid.Parse(endpointID)
+	endpoint, err := m.GetEndpointByID(endpointID)
 	if err != nil {
 		return err
 	}
-	deploymentUID, err := uuid.Parse(deploymentID)
+
+	deployment, err := m.GetDeploymentByID(deploymentID)
 	if err != nil {
 		return err
 	}
-	filter := bson.M{"_id": endpointUID}
-	update := bson.M{"$set": bson.M{"activeDeploymentID": deploymentUID}}
+
+	filter := bson.M{"_id": endpoint.ID}
+	update := bson.M{"$set": bson.M{"activeDeploymentID": deployment.ID}}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	_, err = m.DeploymentCol.UpdateOne(ctx, filter, update)
+
+	_, err = m.EndpointCol.UpdateOne(ctx, filter, update)
 	return err
 }
 
@@ -54,8 +57,14 @@ func (m MongoStore) UpdateEndpoint(endpointID string, params UpdateEndpointParam
 	}
 
 	filter := bson.M{"_id": endpoint.ID}
+	currEnv := endpoint.Environment
+
+	for k, v := range params.Environment {
+		currEnv[k] = v
+	}
+
 	// TODO: this should append and replace duplicated field from current endpoint with active deployment endpoint
-	update := bson.M{"$set": bson.M{"activeDeploymentID": params.ActiveDeployID}}
+	update := bson.M{"$set": bson.M{"environment": currEnv, "activeDeploymentID": params.ActiveDeployID}}
 	return m.EndpointCol.FindOneAndUpdate(context.Background(), filter, update).Err()
 }
 
