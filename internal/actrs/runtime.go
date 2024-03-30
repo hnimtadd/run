@@ -100,6 +100,7 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 		return
 	}
 
+	start := time.Now()
 	bufBytes, err := proto.Marshal(req)
 	if err != nil {
 		responseError(ctx, http.StatusInternalServerError, "cannot marshal request", req.Id)
@@ -141,8 +142,15 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 		}
 		// should not response error here, should switch to string request_log.go
 	}
+	duration := time.Since(start)
+	// Calculate metric for current request
+	requestMetric := types.CreateRequestMetric(req.Id, int(rsp.Code), duration)
 
-	// TODO: in the future, we should track the runtime metric of the request (duration, status)
+	// save request metric to store
+	fmt.Println(requestMetric)
+
+	// update metric of this deployment
+
 	responseHTTPResponse(ctx, rsp)
 	r.stdout.Reset()
 }
