@@ -132,12 +132,8 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 	// TODO: runtime metrics, write request_log.go to metric server
 	lines, err := shared.ParseLog(logs)
 	if err == nil {
-		reqLogs := &types.RequestLog{
-			DeploymentID: r.deploymentID,
-			RequestID:    uuid.MustParse(req.Id),
-			Contents:     lines,
-			CreatedAt:    time.Now().Unix(),
-		}
+		requestUID, _ := uuid.Parse(req.Id)
+		reqLogs := types.NewRequestLog(r.deploymentID, requestUID, lines)
 		if err := r.logStore.AppendLog(reqLogs); err != nil {
 			slog.Error("failed to add log to server", "request", req.Id, "msg", err.Error())
 		}
