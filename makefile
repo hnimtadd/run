@@ -1,9 +1,3 @@
-build:
-	@ go build -o ./bin/local ./cmd/main.go
-
-run: build
-	@ ./bin/local
-
 build-ingress:
 	@ go build -o ./bin/ingress ./cmd/ingress/main.go
 
@@ -38,4 +32,4 @@ container-up:
 container-down:
 	@ docker-compose -f ./docker/docker-compose.yml down
 
-.PHONY: build run build-ingress ingress build-api api gen test build_example clean_example go-lint container-up container-down
+.PHONY: build-ingress ingress build-api api gen test build_example clean_example go-lint container-up container-down
