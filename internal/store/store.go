@@ -2,8 +2,6 @@ package store
 
 import (
 	"github.com/hnimtadd/run/internal/types"
-
-	"github.com/google/uuid"
 )
 
 type (
@@ -21,8 +19,7 @@ type (
 		GetDeploymentByEndpointID(endpointID string) ([]*types.Deployment, error)
 	}
 	UpdateEndpointParams struct {
-		Environment    map[string]string
-		ActiveDeployID uuid.UUID
+		Environment map[string]string
 	}
 	LogStore interface {
 		AppendLog(log *types.RequestLog) error

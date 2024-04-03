@@ -156,7 +156,6 @@ func (m *MemoryStore) UpdateEndpoint(endpointID string, params UpdateEndpointPar
 		return errors.ErrEndpointNotExisted
 	}
 	curr.Environment = params.Environment
-	curr.ActiveDeploymentID = params.ActiveDeployID
 	m.mu.RLock()
 	m.endpoints[endpointUUID] = curr
 	m.mu.RUnlock()

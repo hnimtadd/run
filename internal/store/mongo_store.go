@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/hnimtadd/run/internal/errors"
 	"github.com/hnimtadd/run/internal/types"
 
 	"github.com/google/uuid"
@@ -52,9 +51,6 @@ func (m MongoStore) UpdateEndpoint(endpointID string, params UpdateEndpointParam
 	if err != nil {
 		return err
 	}
-	if endpoint.ActiveDeploymentID.String() == params.ActiveDeployID.String() {
-		return errors.ErrDocumentDuplicated
-	}
 
 	filter := bson.M{"_id": endpoint.ID}
 	currEnv := endpoint.Environment
@@ -63,8 +59,7 @@ func (m MongoStore) UpdateEndpoint(endpointID string, params UpdateEndpointParam
 		currEnv[k] = v
 	}
 
-	// TODO: this should append and replace duplicated field from current endpoint with active deployment endpoint
-	update := bson.M{"$set": bson.M{"environment": currEnv, "activeDeploymentID": params.ActiveDeployID}}
+	update := bson.M{"$set": bson.M{"environment": currEnv}}
 	return m.EndpointCol.FindOneAndUpdate(context.Background(), filter, update).Err()
 }
 
