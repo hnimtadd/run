@@ -11,7 +11,7 @@ import (
 type Deployment struct {
 	Hash        string            `json:"hash" bson:"hash"`
 	Blob        []byte            `json:"blob" bson:"blob"`
-	CreatedAt   int64             `json:"createdAt" bson:"createdAt"`
+	CreatedAt   int64             `json:"createdAt" bson:"createdAt"` // unix timestamp
 	ID          uuid.UUID         `json:"id" bson:"_id"`
 	EndpointID  uuid.UUID         `json:"endpointID" bson:"endpointID"`
 	Environment map[string]string `json:"environment" bson:"environment"`
@@ -34,7 +34,7 @@ func NewDeployment(endpoint *Endpoint, blob []byte, environment ...map[string]st
 		Hash:        deploymentHash,
 		EndpointID:  endpoint.ID,
 		Environment: env,
-		CreatedAt:   time.Now().UnixMicro(),
+		CreatedAt:   time.Now().Unix(),
 	}
 	return deployment, nil
 }

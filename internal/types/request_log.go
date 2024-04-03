@@ -1,11 +1,9 @@
 package types
 
-import "github.com/google/uuid"
-
-//const (
-//	LogFormatString LogFormat = iota
-//	LogFormatJSON
-//)
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type LogFormat byte
 
@@ -13,5 +11,14 @@ type RequestLog struct {
 	RequestID    uuid.UUID
 	DeploymentID uuid.UUID
 	Contents     []string
-	CreatedAt    int64
+	CreatedAt    int64 // unix timestamp
+}
+
+func NewRequestLog(deploymentID uuid.UUID, requestID uuid.UUID, logs []string) *RequestLog {
+	return &RequestLog{
+		DeploymentID: deploymentID,
+		RequestID:    requestID,
+		Contents:     logs,
+		CreatedAt:    time.Now().Unix(),
+	}
 }
