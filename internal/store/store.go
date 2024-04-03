@@ -15,12 +15,14 @@ type (
 		CreateDeployment(deploy *types.Deployment) error
 		GetDeploymentByID(deploymentID string) (*types.Deployment, error)
 		GetDeployments() ([]*types.Deployment, error)
+		DeleteDeployment(deploymentID string) error
 
-		GetDeploymentByEndpointID(endpointID string) ([]*types.Deployment, error)
+		GetDeploymentsByEndpointID(endpointID string) ([]*types.Deployment, error)
 	}
 	UpdateEndpointParams struct {
 		Environment map[string]string
 	}
+
 	LogStore interface {
 		AppendLog(log *types.RequestLog) error
 		GetLogByRequestID(requestID string) (*types.RequestLog, error)

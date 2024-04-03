@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hnimtadd/run/internal/types"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var (
@@ -27,13 +29,21 @@ func (m MongoStore) UpdateActiveDeploymentOfEndpoint(endpointID string, deployme
 		return err
 	}
 
-	deployment, err := m.GetDeploymentByID(deploymentID)
+	deploymentUID, err := uuid.Parse(deploymentID)
 	if err != nil {
 		return err
 	}
 
+	_, err = m.GetDeploymentByID(deploymentID)
+	if err != nil {
+		// here, we could meet the case where user want to update nil uuid
+		if deploymentID != uuid.Nil.String() {
+			return err
+		}
+	}
+
 	filter := bson.M{"_id": endpoint.ID}
-	update := bson.M{"$set": bson.M{"activeDeploymentID": deployment.ID}}
+	update := bson.M{"$set": bson.M{"activeDeploymentID": deploymentUID}}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
@@ -130,7 +140,7 @@ func (m MongoStore) GetDeployments() ([]*types.Deployment, error) {
 	return deployments, nil
 }
 
-func (m MongoStore) GetDeploymentByEndpointID(endpointID string) ([]*types.Deployment, error) {
+func (m MongoStore) GetDeploymentsByEndpointID(endpointID string) ([]*types.Deployment, error) {
 	endpointUID, err := uuid.Parse(endpointID)
 	if err != nil {
 		return nil, err
@@ -139,7 +149,9 @@ func (m MongoStore) GetDeploymentByEndpointID(endpointID string) ([]*types.Deplo
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	filter := bson.M{"endpointID": endpointUID}
-	cur, err := m.DeploymentCol.Find(ctx, filter)
+
+	// find by ascending order by createdAt timestamp
+	cur, err := m.DeploymentCol.Find(ctx, filter, options.Find().SetSort(bson.M{"createdAt": 1}))
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +160,24 @@ func (m MongoStore) GetDeploymentByEndpointID(endpointID string) ([]*types.Deplo
 		return nil, err
 	}
 	return deployments, nil
+}
+
+func (m MongoStore) DeleteDeployment(deploymentID string) error {
+	deployment, err := m.GetDeploymentByID(deploymentID)
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"_id": deployment.ID}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	cur, err := m.DeploymentCol.DeleteOne(ctx, filter)
+	if err != nil {
+		return err
+	}
+	if cur.DeletedCount != int64(1) {
+		return fmt.Errorf("store: unexpected error, expected delete 1 document, got %d", cur.DeletedCount)
+	}
+	return nil
 }
 
 func NewMongoStore(db *mongo.Database) (Store, error) {

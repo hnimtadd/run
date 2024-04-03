@@ -22,6 +22,17 @@ type MemoryStore struct {
 	logs      map[uuid.UUID]map[uuid.UUID]*types.RequestLog // map deploymentID with request_id and request_log.go
 }
 
+func (m *MemoryStore) DeleteDeployment(deploymentID string) error {
+	deploymentUID, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return err
+	}
+	m.mu.RLock()
+	delete(m.deploys, deploymentUID)
+	m.mu.RUnlock()
+	return nil
+}
+
 func (m *MemoryStore) UpdateActiveDeploymentOfEndpoint(endpointID string, deploymentID string) error {
 	endpointUID, err := uuid.Parse(endpointID)
 	if err != nil {
@@ -236,7 +247,7 @@ func (m *MemoryStore) GetDeployment(deploymentID string) (*types.Deployment, err
 	return deploy, nil
 }
 
-func (m *MemoryStore) GetDeploymentByEndpointID(endpointID string) ([]*types.Deployment, error) {
+func (m *MemoryStore) GetDeploymentsByEndpointID(endpointID string) ([]*types.Deployment, error) {
 	endpointUID, err := uuid.Parse(endpointID)
 	if err != nil {
 		return nil, err

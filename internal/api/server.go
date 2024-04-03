@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -54,7 +56,7 @@ func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) e
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	deployments, err := s.store.GetDeploymentByEndpointID(endpointID)
+	deployments, err := s.store.GetDeploymentsByEndpointID(endpointID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
@@ -108,6 +110,7 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
+	slog.Info("update endpoint active deployment id", "deploymentID", deployment.ID.String())
 	if err := s.store.UpdateActiveDeploymentOfEndpoint(endpoint.ID.String(), deployment.ID.String()); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
@@ -122,11 +125,11 @@ func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.R
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	deployments, err := s.store.GetDeploymentByEndpointID(endpointID)
+	deployments, err := s.store.GetDeploymentsByEndpointID(endpointID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	var d []Deployment
+	var d []map[string]string
 	for _, deployment := range deployments {
 		d = append(d, FromInternalDeployment(deployment))
 	}
@@ -180,6 +183,87 @@ func (s *Server) HandleGetLogOfDeployment(w http.ResponseWriter, r *http.Request
 	return utils.WriteJSON(w, http.StatusOK, rspLogs)
 }
 
+func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
+	endpointID := chi.URLParam(r, "id")
+	deploymentID := r.URL.Query().Get("deploymentID")
+	slog.Info("rollback for", "deploymentID", deploymentID, "endpoint", endpointID)
+
+	endpoint, err := s.store.GetEndpointByID(endpointID)
+	if err != nil {
+		slog.Info("cannot get endpoint", "msg", err.Error())
+		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "endpoint not existed"})
+	}
+
+	if !endpoint.HasActiveDeploy() {
+		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "cannot rollback on empty endpoint"})
+	}
+
+	deployments, err := s.store.GetDeploymentsByEndpointID(endpointID)
+	if err != nil {
+		slog.Info("cannot get deployments", "msg", err.Error())
+		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "cannot get deployments of given endpoint"})
+	}
+
+	switch deploymentID {
+	case "":
+		// default, rollback to latest deployment
+		// maybe if endpoint have only 1 deployment, we could set the endpoint activeDeploymentID to null
+		latestDeploymentUID := endpoint.ActiveDeploymentID
+		currentDeploymentUID := uuid.Nil
+		if len(deployments) >= 2 {
+			currentDeploymentUID = deployments[len(deployments)-2].ID
+		}
+
+		if err := s.store.DeleteDeployment(latestDeploymentUID.String()); err != nil {
+			slog.Info("cannot delete current deployment of endpoint", "endpoint", endpointID, "deployment", latestDeploymentUID.String(), "msg", err.Error())
+			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+		}
+		if err := s.store.UpdateActiveDeploymentOfEndpoint(endpointID, currentDeploymentUID.String()); err != nil {
+			slog.Info("cannot update active deployment of endpoint", "endpoint", endpointID, "deployment", currentDeploymentUID.String(), "msg", err.Error())
+			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+		}
+	default:
+		_, err := s.store.GetDeploymentByID(deploymentID)
+		if err != nil {
+			slog.Info("cannot get given deploymentID", "endpoint", endpointID, "deployment", deploymentID, "msg", err.Error())
+			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+		}
+		// since deployments already in ascending order, we will loop from the beginning then check
+		// if we meet the deployment then, we will delete following deployments
+
+		sinceIdx := -1
+		for idx, deployment := range deployments {
+			if deployment.ID.String() == deploymentID {
+				sinceIdx = idx + 1
+				break
+			}
+		}
+
+		if sinceIdx == -1 {
+			return utils.WriteJSON(
+				w,
+				http.StatusBadRequest,
+				map[string]any{
+					"error": "unexpected error, could not found deployment from endpoint's deployments",
+				})
+		}
+
+		for idx := sinceIdx; idx < len(deployments); idx++ {
+			deploymentUID := deployments[idx].ID.String()
+			if err := s.store.DeleteDeployment(deploymentUID); err != nil {
+				slog.Info("cannot delete given deployment of endpoint", "endpoint", endpointID, "deployment", deploymentUID, "msg", err.Error())
+				return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+			}
+		}
+		// rollback to specific deployment
+		if err := s.store.UpdateActiveDeploymentOfEndpoint(endpointID, deploymentID); err != nil {
+			slog.Info("cannot update active deployment of endpoint", "endpoint", endpointID, "deployment", deploymentID, "msg", err.Error())
+			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+		}
+	}
+	return utils.WriteJSON(w, http.StatusOK, nil)
+}
+
 func handleStatus(w http.ResponseWriter, _ *http.Request) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -201,6 +285,8 @@ func (s *Server) InitRoute() {
 	s.router.Get("/endpoint/{id}", makeAPIHandler(s.HandleGetEndpointByID))
 	s.router.Post("/endpoint/{id}/deploy", makeAPIHandler(s.HandlePostDeployment))
 	s.router.Get("/endpoint/{id}/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
+	s.router.Options("/endpoint/{id}/rollback", makeAPIHandler(s.HandleRollback))
+
 	s.router.Get("/deployment/{id}", makeAPIHandler(s.HandleGetDeployment))
 	s.router.Get("/deployment/{id}/log", makeAPIHandler(s.HandleGetLogOfDeployment))
 
@@ -213,34 +299,27 @@ func (s *Server) ListenAndServe(addr string) error {
 	return http.ListenAndServe(addr, s.router)
 }
 
-type Deployment struct {
-	ID         string `json:"id"`
-	Hash       string `json:"hash"`
-	EndpointID string `json:"endpointID"`
-	Created    string `json:"createdAt"`
-}
-
-func FromInternalDeployment(d *types.Deployment) Deployment {
-	return Deployment{
-		ID:         d.ID.String(),
-		Hash:       d.Hash,
-		EndpointID: d.EndpointID.String(),
-		Created:    time.Unix(d.CreatedAt, 0).String(),
+func FromInternalDeployment(d *types.Deployment) map[string]string {
+	return map[string]string{
+		"id":         d.ID.String(),
+		"hash":       d.Hash,
+		"endpointID": d.EndpointID.String(),
+		"createdAt":  time.Unix(d.CreatedAt, 0).String(),
 	}
 }
 
 type Endpoint struct {
-	ID                 string            `json:"id,omitempty"`
-	Name               string            `json:"name,omitempty"`
-	Runtime            string            `json:"runtime,omitempty"`
-	Environment        map[string]string `json:"environment,omitempty"`
-	ActiveDeploymentID string            `json:"activeDeploymentID,omitempty"`
-	DeployHistory      []Deployment      `json:"deployHistory,omitempty"`
-	CreatedAt          string            `json:"createdAt,omitempty"`
+	ID                 string              `json:"id,omitempty"`
+	Name               string              `json:"name,omitempty"`
+	Runtime            string              `json:"runtime,omitempty"`
+	Environment        map[string]string   `json:"environment,omitempty"`
+	ActiveDeploymentID string              `json:"activeDeploymentID,omitempty"`
+	DeployHistory      []map[string]string `json:"deployHistory,omitempty"`
+	CreatedAt          string              `json:"createdAt,omitempty"`
 }
 
 func FromInternalEndpoint(endpoint *types.Endpoint, deployments []*types.Deployment) Endpoint {
-	var deployHistory []Deployment
+	var deployHistory []map[string]string
 	for _, deployment := range deployments {
 		deployHistory = append(deployHistory, FromInternalDeployment(deployment))
 	}

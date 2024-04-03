@@ -80,13 +80,13 @@ func TestMongoStore_GetDeploymentByEndpointID(t *testing.T) {
 
 	require.Nil(t, mongoStore.CreateEndpoint(endpoint))
 	require.Nil(t, mongoStore.CreateDeployment(deployment))
-	deployments, err := mongoStore.GetDeploymentByEndpointID(endpoint.ID.String())
+	deployments, err := mongoStore.GetDeploymentsByEndpointID(endpoint.ID.String())
 	require.Nil(t, err)
 	require.NotNil(t, deployments)
 	require.Equal(t, 1, len(deployments))
 	require.Equal(t, *deployment, *deployments[0])
 
-	nilDeployments, err := mongoStore.GetDeploymentByEndpointID("ahlsfj")
+	nilDeployments, err := mongoStore.GetDeploymentsByEndpointID("ahlsfj")
 	require.NotNil(t, err)
 	require.Nil(t, nilDeployments)
 }
