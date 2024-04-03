@@ -2,6 +2,7 @@ package actrs
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/asynkron/protoactor-go/cluster"
@@ -17,7 +18,7 @@ func (r *RuntimeManager) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
 	case *cluster.ClusterInit:
-		fmt.Println("start runtime manager")
+		slog.Info("receive cluster init message", "node", "runtime manager")
 		r.ctx = cluster.NewGrainContext(ctx, msg.Identity, msg.Cluster)
 	case *actor.Stop:
 		return
@@ -26,7 +27,7 @@ func (r *RuntimeManager) Receive(ctx actor.Context) {
 	case *actor.Stopped:
 		return
 	case *message.RequestRuntimeMessage:
-		fmt.Println("receive request runtime")
+		slog.Info("receive runtime request message", "runtime", msg.Runtime, "node", "runtime manager")
 		pid, ok := r.lookup[msg.DeploymentID]
 		if !ok {
 			pid = r.SpawnRuntime(msg)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -36,18 +37,19 @@ type Runtime struct {
 func (r *Runtime) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
-		fmt.Println("booted runtime at", ctx.Self().Id)
+		slog.Info("runtime started", "node", "runtime")
+
 		r.started = time.Now()
 
 	case *actor.Stopped:
 		timeUsed := time.Since(r.started)
-		fmt.Println("stopped runtime", timeUsed.Seconds())
+		slog.Info("runtime started", "node", "runtime", "online duration", timeUsed)
 
 	case *pb.HTTPRequest:
-		fmt.Println("runtime handling request", "request_id", msg.Id)
+		slog.Info("incoming request", "request", msg.Id)
 		if r.runtime == nil {
 			if err := r.Initialize(msg); err != nil {
-				fmt.Println("cannot initialized runtime", err)
+				slog.Info("cannot initialized runtime", "node", "runtime", "msg", err.Error())
 			}
 		}
 		r.managerPID = ctx.Sender()
@@ -67,7 +69,6 @@ func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
 	r._format = deploy.Format
 	modCache, err := r.cache.Get(deploy.ID)
 	if err != nil {
-		fmt.Println("cache not hit")
 		modCache = wazero.NewCompilationCache()
 	}
 	r.stdout = new(bytes.Buffer)
@@ -115,14 +116,14 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 
 	logs, body, err := shared.ParseStdout(r.stdout)
 	if err != nil {
-		fmt.Println("cannot parse output "+err.Error(), req.Id)
+		slog.Error("cannot parse output ", "request", req.Id, "msg", err.Error())
 		responseError(ctx, http.StatusInternalServerError, "cannot parse output "+err.Error(), req.Id)
 		return
 	}
 
 	rsp := new(pb.HTTPResponse)
 	if err := proto.Unmarshal(body, rsp); err != nil {
-		fmt.Println("cannot unmarshal output "+err.Error(), req.Id)
+		slog.Error("cannot unmarshal output ", "request", req.Id, "msg", err.Error())
 		responseError(ctx, http.StatusInternalServerError, "cannot unmarshal output "+err.Error(), req.Id)
 		return
 	}
@@ -138,7 +139,7 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 			CreatedAt:    time.Now().Unix(),
 		}
 		if err := r.logStore.AppendLog(reqLogs); err != nil {
-			log.Println("cannot append request to server", err)
+			slog.Error("failed to add log to server", "request", req.Id, "msg", err.Error())
 		}
 		// should not response error here, should switch to string request_log.go
 	}

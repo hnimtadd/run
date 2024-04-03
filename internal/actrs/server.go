@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func (s *Server) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
 	case *cluster.ClusterInit:
-		fmt.Println("init")
+		slog.Info("received cluster init message", "node", "Server")
 		s.ctx = cluster.NewGrainContext(ctx, msg.Identity, msg.Cluster)
 		s.self = ctx.Self()
 		s.Initialize()
@@ -55,12 +56,12 @@ func (s *Server) Receive(ctx actor.Context) {
 		// initialized in time.
 		// In that case, we could spaw the runtime
 
-		runtimePID := s.RequestRuntime(msg.Request.DeploymentId, msg.Request.Runtime)
-		if runtimePID == nil {
-			log.Panic("failed to request a runtime PID")
+		runtimePID, err := s.RequestRuntime(msg.Request.DeploymentId, msg.Request.Runtime)
+		if err != nil {
+			slog.Info("cannot request runtime", "msg", err, "node", "server")
 			return
 		}
-		fmt.Println("runtime PID", runtimePID.Id)
+		slog.Info("request runtime success, redirecting user request", "pid", runtimePID.Id)
 
 		defer s.ctx.Request(runtimePID, msg.Request)
 		if msg.ResponseCh == nil {
@@ -76,7 +77,7 @@ func (s *Server) Receive(ctx actor.Context) {
 	}
 }
 
-func (s *Server) RequestRuntime(deploymentID string, runtime string) *actor.PID {
+func (s *Server) RequestRuntime(deploymentID string, runtime string) (*actor.PID, error) {
 	res, err := s.ctx.RequestFuture(
 		s.runtimeManagerPID,
 		&message.RequestRuntimeMessage{
@@ -86,18 +87,17 @@ func (s *Server) RequestRuntime(deploymentID string, runtime string) *actor.PID 
 		time.Second*5,
 	).Result()
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
-	return res.(*actor.PID)
+	return res.(*actor.PID), nil
 }
 
 func (s *Server) Initialize() {
 	s.runtimeManagerPID = s.ctx.Cluster().Get("localRuntimeManager", KindRuntimeManager)
-	fmt.Println("runtime manager id", s.runtimeManagerPID.String())
+	slog.Info("initialized runtime manager", "pid", s.runtimeManagerPID.Id)
 
 	go func() {
-		fmt.Printf("serving at %v...\n", s.httpServer.Addr)
+		slog.Info("serving ingress...", "at", s.httpServer.Addr, "node", "Server")
 		log.Panic(s.httpServer.ListenAndServe())
 	}()
 }
@@ -107,16 +107,17 @@ func (s *Server) Stop() {
 	defer cancel()
 
 	if err := s.httpServer.Shutdown(ctx); err != nil {
-		fmt.Printf("cannot shutdown server, %v", err)
+		slog.Error("cannot shutdown server", "msg", err.Error())
 	}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err := r.Body.Close(); err != nil {
-			log.Panic("cannot close request body", err)
+			slog.Error("failed to close this request's body", "msg", err.Error())
 		}
 	}()
+
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	path = strings.TrimSuffix(path, "/")
 	pathParts := strings.Split(path, "/")
@@ -125,7 +126,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(pathParts) > 2 {
 		innerURL = fmt.Sprintf("/%s", strings.Join(pathParts[2:], "/"))
 	}
-	fmt.Println("innerURL", innerURL)
 
 	var (
 		deploy   *types.Deployment
@@ -133,6 +133,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err      error
 		req      = utils.MakeProtoRequest(uuid.NewString())
 	)
+
+	slog.Info("new request", "node", "server", "environment", pathParts[0], "url", innerURL)
 	// first param is mode
 	switch pathParts[0] {
 	case "preview":
@@ -199,7 +201,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqMessage := message.NewRequestMessage(req, rspCh)
 
 	s.ctx.Send(s.self, reqMessage)
-	fmt.Println("waiting for response...")
+	slog.Info("waiting for response from sandbox...")
 	rsp := <-rspCh
 
 	w.WriteHeader(int(rsp.Code))
@@ -209,8 +211,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(key, field)
 		}
 	}
+
+	slog.Info("got response from sandbox, returning to user")
 	_, _ = w.Write(rsp.Body)
-	fmt.Println("done")
 }
 
 func NewServer(cfg *ServerConfig) actor.Producer {
