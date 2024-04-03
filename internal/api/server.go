@@ -107,7 +107,8 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	if err := s.store.CreateDeployment(deployment); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
-	if err := s.store.UpdateEndpoint(endpoint.ID.String(), store.UpdateEndpointParams{ActiveDeployID: deployment.ID, Environment: deployment.Environment}); err != nil {
+
+	if err := s.store.UpdateActiveDeploymentOfEndpoint(endpoint.ID.String(), deployment.ID.String()); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
