@@ -43,5 +43,5 @@ func NewEndpoint(name string, runtime string, environment map[string]string) (*E
 }
 
 func (e Endpoint) HasActiveDeploy() bool {
-	return e.ID != uuid.Nil
+	return e.ActiveDeploymentID.String() != uuid.Nil.String()
 }
