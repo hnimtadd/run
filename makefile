@@ -1,17 +1,31 @@
+PKG := github.com/hnimtadd/run
+VERSION := $(shell git describe --always --long --dirty)
+PKG_LIST := $(shell go list ${PKG}/... | grep -v /vendor/)
+GO_FILES := $(shell find . -name '*.go' | grep -v /vendor/)
+BIN := ./bin
+BUILD := `git rev-parse HEAD` 
+LDFLAGS=-ldflags "-X=${PKG}/internal/version.Version=$(BUILD)"
+
+clean:
+	-@rm ${BIN}/*
+
 build-ingress:
-	@ go build -o ./bin/ingress ./cmd/ingress/main.go
+	@ go build ${LDFLAGS} -o ${BIN}/ingress ./cmd/ingress/main.go
 
 ingress: build-ingress
-	@ ./bin/ingress
+	@ ${BIN}/ingress
 
 build-api:
-	@ go build -o ./bin/api ./cmd/api/main.go
+	@ go build ${LDFLAGS} -o ${BIN}/api ./cmd/api/main.go
 
 api: build-api
-	@ ./bin/api
+	@ ${BIN}/api
 
 test: 
-	@ go test -v ./...
+	@ go test --short ${PKG_LIST}
+
+vet:
+	@ go vet ${PKG_LIST}
 
 gen:
 	@ cd proto && buf generate
