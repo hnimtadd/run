@@ -97,6 +97,13 @@ func main() {
 					Cache:    inMemoryCache,
 					LogStore: inMemoryStore,
 				}),
+			actrs.NewMetricAggregatorKind(
+				&actrs.MetricAggregatorConfig{
+					Version:       version.Version,
+					MetricStore:   nil, // TODO: implement this
+					MetadataStore: st,
+				},
+			),
 		),
 	)
 

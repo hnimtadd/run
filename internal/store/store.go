@@ -29,4 +29,8 @@ type (
 		GetLogsOfRequest(deploymentID string, requestID string) (*types.RequestLog, error)
 		GetLogOfDeployment(deploymentID string) ([]*types.RequestLog, error)
 	}
+	MetricStore interface {
+		AddEndpointMetric(endpointID string, metrics types.RequestMetric) error
+		GetMetricByEndpointID(endpointID string) (types.RuntimeMetric, error)
+	}
 )

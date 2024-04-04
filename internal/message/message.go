@@ -1,6 +1,9 @@
 package message
 
-import "github.com/hnimtadd/run/pb/v1"
+import (
+	"github.com/hnimtadd/run/internal/types"
+	"github.com/hnimtadd/run/pb/v1"
+)
 
 type (
 	Type       byte
@@ -11,6 +14,8 @@ const (
 	TypeRequestRuntime Type = iota
 	TypeRemoveRuntime
 	TypeRequest
+	TypeMetric
+	TypeRuntimeResponse
 )
 
 type Message struct {
@@ -40,3 +45,14 @@ func NewRequestMessage(req *pb.HTTPRequest, rspCh chan<- *pb.HTTPResponse) *Requ
 }
 
 type StartMessage struct{}
+
+type MetricMessage struct {
+	DeploymentID string // uuid.UUID
+	RequestID    string // uuid.UUID
+	Metric       types.RequestMetric
+}
+
+type ResponseWithMetric struct {
+	Response      *pb.HTTPResponse
+	MetricMessage *MetricMessage
+}

@@ -24,14 +24,15 @@ import (
 
 type (
 	Server struct {
-		httpServer        *http.Server
-		self              *actor.PID
-		runtimeManagerPID *actor.PID
-		ctx               cluster.GrainContext
-		responses         map[string]chan<- *pb.HTTPResponse
-		store             store.Store
-		cache             store.ModCacher
-		version           string
+		httpServer          *http.Server
+		self                *actor.PID
+		runtimeManagerPID   *actor.PID
+		metricAggregatorPID *actor.PID
+		ctx                 cluster.GrainContext
+		responses           map[string]chan<- *pb.HTTPResponse
+		store               store.Store
+		cache               store.ModCacher
+		version             string
 	}
 	ServerConfig struct {
 		Addr    string
@@ -71,10 +72,15 @@ func (s *Server) Receive(ctx actor.Context) {
 		}
 		s.responses[msg.Request.Id] = msg.ResponseCh
 
-	case *pb.HTTPResponse:
-		if responseCh, ok := s.responses[msg.RequestId]; ok {
-			responseCh <- msg
-			delete(s.responses, msg.RequestId)
+	case *message.ResponseWithMetric:
+		rsp := msg.Response
+		if responseCh, ok := s.responses[rsp.RequestId]; ok {
+			responseCh <- rsp
+			delete(s.responses, rsp.RequestId)
+		}
+		// append metric here
+		if msg.MetricMessage != nil {
+			ctx.Send(s.metricAggregatorPID, msg.MetricMessage)
 		}
 	}
 }
@@ -96,10 +102,13 @@ func (s *Server) RequestRuntime(deploymentID string, runtime string) (*actor.PID
 
 func (s *Server) Initialize() {
 	s.runtimeManagerPID = s.ctx.Cluster().Get("localRuntimeManager", KindRuntimeManager)
-	slog.Info("initialized runtime manager", "pid", s.runtimeManagerPID.Id, "version", s.version)
+	slog.Info("initialized runtime manager", "pid", s.runtimeManagerPID.Id)
+
+	s.metricAggregatorPID = s.ctx.Cluster().Get("localMetricAggragator", KindMetricAggregator)
+	slog.Info("initialized metric aggregator", "pid", s.metricAggregatorPID.Id)
 
 	go func() {
-		slog.Info("serving ingress...", "at", s.httpServer.Addr, "node", "Server")
+		slog.Info("serving ingress...", "at", s.httpServer.Addr, "node", "Server", "version", s.version)
 		log.Panic(s.httpServer.ListenAndServe())
 	}()
 }
