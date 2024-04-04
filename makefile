@@ -3,7 +3,7 @@ VERSION := $(shell git describe --always --long --dirty)
 PKG_LIST := $(shell go list ${PKG}/... | grep -v /vendor/)
 GO_FILES := $(shell find . -name '*.go' | grep -v /vendor/)
 BIN := ./bin
-BUILD := `git rev-parse HEAD` 
+BUILD := `git describe --tags --abbrev=8 --dirty --always --long` 
 LDFLAGS=-ldflags "-X=${PKG}/internal/version.Version=$(BUILD)"
 
 clean:
