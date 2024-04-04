@@ -15,6 +15,7 @@ import (
 
 	"github.com/hnimtadd/run/internal/actrs"
 	"github.com/hnimtadd/run/internal/store"
+	"github.com/hnimtadd/run/internal/version"
 
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/asynkron/protoactor-go/cluster"
@@ -85,8 +86,9 @@ func main() {
 		cluster.WithKinds(
 			actrs.NewServerKind(
 				&actrs.ServerConfig{
-					Addr:  fmt.Sprintf(":%v", os.Getenv("WASM_ADDR")),
-					Store: st,
+					Addr:    fmt.Sprintf(":%v", os.Getenv("WASM_ADDR")),
+					Store:   st,
+					Version: version.Version,
 				}),
 			actrs.NewRuntimeManagerKind(),
 			actrs.NewRuntimeKind(

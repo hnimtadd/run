@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,10 +17,46 @@ import (
 	"github.com/google/uuid"
 )
 
-type Server struct {
-	store    store.Store
-	logStore store.LogStore
-	router   *chi.Mux
+type (
+	Server struct {
+		store    store.Store
+		logStore store.LogStore
+		router   *chi.Mux
+		ServerConfig
+	}
+	ServerConfig struct {
+		Addr    string
+		Version string
+	}
+)
+
+func NewServer(store store.Store, logStore store.LogStore, config ServerConfig) *Server {
+	return &Server{
+		store:        store,
+		logStore:     logStore,
+		ServerConfig: config,
+	}
+}
+
+func (s *Server) InitRoute() {
+	s.router = chi.NewRouter()
+	s.router.Get("/status", makeAPIHandler(handleStatus))
+	s.router.Post("/endpoint", makeAPIHandler(s.HandleCreateEndpoint))
+	s.router.Get("/endpoint/{id}", makeAPIHandler(s.HandleGetEndpointByID))
+	s.router.Post("/endpoint/{id}/deploy", makeAPIHandler(s.HandlePostDeployment))
+	s.router.Get("/endpoint/{id}/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
+	s.router.Options("/endpoint/{id}/rollback", makeAPIHandler(s.HandleRollback))
+
+	s.router.Get("/deployment/{id}", makeAPIHandler(s.HandleGetDeployment))
+	s.router.Get("/deployment/{id}/log", makeAPIHandler(s.HandleGetLogOfDeployment))
+
+	s.router.Get("/request/{id}/log", makeAPIHandler(s.HandleGetLogOfRequest))
+}
+
+func (s *Server) ListenAndServe() error {
+	s.InitRoute()
+	slog.Info("Listen and serve api\n", "at", s.Addr, "version", s.Version)
+	return http.ListenAndServe(s.Addr, s.router)
 }
 
 type CreateEndpointParams struct {
@@ -49,8 +84,7 @@ func (s *Server) HandleCreateEndpoint(w http.ResponseWriter, r *http.Request) er
 
 func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
-	fmt.Println("get endpoint id", endpointID)
-
+	slog.Info("receive get endpoint by Id request", "endpointID", endpointID)
 	endpoint, err := s.store.GetEndpointByID(endpointID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
@@ -81,11 +115,13 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	}
 
 	if err := r.ParseMultipartForm(settings.MaxBlobSize); err != nil {
+		slog.Info("cannot parse form of request ", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
 	f, _, err := r.FormFile("blob")
 	if err != nil {
+		slog.Info("cannot get file from form ", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
@@ -96,22 +132,22 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	}
 
 	if size >= settings.MaxBlobSize {
-		fmt.Println(size, settings.MaxBlobSize)
-		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "given blob exceed maxsize"})
+		slog.Info("request have blob exceed maxsize", "accept", settings.MaxBlobSize, "got", size)
+		return utils.WriteJSON(w,
+			http.StatusBadRequest,
+			map[string]any{"error": "given blob exceed maxsize", "accepted": settings.MaxBlobSize})
 	}
 
 	// TODO: fix, currently, if user need to update new environment value to the request, we must extract it from the body.
-	deployment, err := types.NewDeployment(endpoint, buf.Bytes(), endpoint.Environment)
-	if err != nil {
-		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
-	}
+	deployment, _ := types.NewDeployment(endpoint, buf.Bytes(), endpoint.Environment)
 
 	if err := s.store.CreateDeployment(deployment); err != nil {
+		slog.Info("cannot create deployment in store", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
-	slog.Info("update endpoint active deployment id", "deploymentID", deployment.ID.String())
 	if err := s.store.UpdateActiveDeploymentOfEndpoint(endpoint.ID.String(), deployment.ID.String()); err != nil {
+		slog.Info("cannot update active deployment for given endpoint", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
@@ -269,34 +305,6 @@ func handleStatus(w http.ResponseWriter, _ *http.Request) error {
 	w.WriteHeader(http.StatusOK)
 	status := map[string]string{"status": "ok"}
 	return json.NewEncoder(w).Encode(status)
-}
-
-func NewServer(store store.Store, logStore store.LogStore) *Server {
-	return &Server{
-		store:    store,
-		logStore: logStore,
-	}
-}
-
-func (s *Server) InitRoute() {
-	s.router = chi.NewRouter()
-	s.router.Get("/status", makeAPIHandler(handleStatus))
-	s.router.Post("/endpoint", makeAPIHandler(s.HandleCreateEndpoint))
-	s.router.Get("/endpoint/{id}", makeAPIHandler(s.HandleGetEndpointByID))
-	s.router.Post("/endpoint/{id}/deploy", makeAPIHandler(s.HandlePostDeployment))
-	s.router.Get("/endpoint/{id}/deploy", makeAPIHandler(s.HandleGetDeploymentsOfEndpoint))
-	s.router.Options("/endpoint/{id}/rollback", makeAPIHandler(s.HandleRollback))
-
-	s.router.Get("/deployment/{id}", makeAPIHandler(s.HandleGetDeployment))
-	s.router.Get("/deployment/{id}/log", makeAPIHandler(s.HandleGetLogOfDeployment))
-
-	s.router.Get("/request/{id}/log", makeAPIHandler(s.HandleGetLogOfRequest))
-}
-
-func (s *Server) ListenAndServe(addr string) error {
-	s.InitRoute()
-	fmt.Printf("Listen and serve api at: %v\n", addr)
-	return http.ListenAndServe(addr, s.router)
 }
 
 func FromInternalDeployment(d *types.Deployment) map[string]string {

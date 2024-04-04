@@ -32,10 +32,10 @@ type RequestMessage struct {
 	ResponseCh chan<- *pb.HTTPResponse
 }
 
-func NewRequestMessage(req *pb.HTTPRequest, rsp chan<- *pb.HTTPResponse) *RequestMessage {
+func NewRequestMessage(req *pb.HTTPRequest, rspCh chan<- *pb.HTTPResponse) *RequestMessage {
 	return &RequestMessage{
 		Request:    req,
-		ResponseCh: rsp,
+		ResponseCh: rspCh,
 	}
 }
 

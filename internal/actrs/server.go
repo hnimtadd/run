@@ -31,10 +31,12 @@ type (
 		responses         map[string]chan<- *pb.HTTPResponse
 		store             store.Store
 		cache             store.ModCacher
+		version           string
 	}
 	ServerConfig struct {
-		Addr  string
-		Store store.Store
+		Addr    string
+		Store   store.Store
+		Version string
 	}
 )
 
@@ -94,7 +96,7 @@ func (s *Server) RequestRuntime(deploymentID string, runtime string) (*actor.PID
 
 func (s *Server) Initialize() {
 	s.runtimeManagerPID = s.ctx.Cluster().Get("localRuntimeManager", KindRuntimeManager)
-	slog.Info("initialized runtime manager", "pid", s.runtimeManagerPID.Id)
+	slog.Info("initialized runtime manager", "pid", s.runtimeManagerPID.Id, "version", s.version)
 
 	go func() {
 		slog.Info("serving ingress...", "at", s.httpServer.Addr, "node", "Server")
@@ -105,7 +107,6 @@ func (s *Server) Initialize() {
 func (s *Server) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-
 	if err := s.httpServer.Shutdown(ctx); err != nil {
 		slog.Error("cannot shutdown server", "msg", err.Error())
 	}
@@ -117,11 +118,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to close this request's body", "msg", err.Error())
 		}
 	}()
-
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	path = strings.TrimSuffix(path, "/")
 	pathParts := strings.Split(path, "/")
-	fmt.Println(pathParts)
 	innerURL := "/"
 	if len(pathParts) > 2 {
 		innerURL = fmt.Sprintf("/%s", strings.Join(pathParts[2:], "/"))
@@ -132,14 +131,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		endpoint *types.Endpoint
 		err      error
 		req      = utils.MakeProtoRequest(uuid.NewString())
+		mode     = pathParts[0]
 	)
-
 	slog.Info("new request", "node", "server", "environment", pathParts[0], "url", innerURL)
+
 	// first param is mode
-	switch pathParts[0] {
+	switch mode {
 	case "preview":
+		deploymentID := pathParts[1]
 		// second param is deployID
-		deploy, err = s.store.GetDeploymentByID(pathParts[1])
+		deploy, err = s.store.GetDeploymentByID(deploymentID)
 		if err != nil {
 			_ = utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 			return
@@ -153,7 +154,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case "live":
 		// second param is endpointId
-		endpoint, err = s.store.GetEndpointByID(pathParts[1])
+		endpointID := pathParts[1]
+		endpoint, err = s.store.GetEndpointByID(endpointID)
 		if err != nil {
 			_ = utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 			return
@@ -174,16 +176,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rHeaders := make(map[string]*pb.HeaderFields)
+	protoHeader := make(map[string]*pb.HeaderFields)
 	for k, v := range r.Header {
 		field := &pb.HeaderFields{
 			Fields: v,
 		}
-		rHeaders[k] = field
+		protoHeader[k] = field
 	}
+
 	req.Env = endpoint.Environment
 	req.Runtime = endpoint.Runtime
-	req.Header = rHeaders
+	req.Header = protoHeader
 	req.EndpointId = endpoint.ID.String()
 	req.DeploymentId = deploy.ID.String()
 	req.Method = r.Method
@@ -222,6 +225,7 @@ func NewServer(cfg *ServerConfig) actor.Producer {
 			responses: make(map[string]chan<- *pb.HTTPResponse),
 			store:     cfg.Store,
 			cache:     store.NewMemoryModCacher(),
+			version:   cfg.Version,
 		}
 		server := &http.Server{Addr: cfg.Addr, Handler: s}
 		s.httpServer = server

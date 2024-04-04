@@ -14,6 +14,7 @@ import (
 
 	"github.com/hnimtadd/run/internal/api"
 	"github.com/hnimtadd/run/internal/store"
+	"github.com/hnimtadd/run/internal/version"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -61,9 +62,15 @@ func main() {
 	// TODO: implement logging store, currently use in-memory store, use in-memory store make no sense here.
 	inMemoryStore := store.NewMemoryStore()
 
-	apiServer := api.NewServer(st, inMemoryStore)
+	serverConfig := api.ServerConfig{
+		Addr:    fmt.Sprintf(":%v", os.Getenv("API_ADDR")),
+		Version: version.Version,
+	}
+
+	apiServer := api.NewServer(st, inMemoryStore, serverConfig)
+
 	go func() {
-		panic(apiServer.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("API_ADDR"))))
+		panic(apiServer.ListenAndServe())
 	}()
 
 	exitCh := make(chan os.Signal, 1)
