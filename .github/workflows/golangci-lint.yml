@@ -19,10 +19,10 @@ jobs:
       mongo:
         image: mongo:latest
         options: >-
-              --health-cmd mongosh
-              --health-interval 10s
-              --health-timeout 5s
-              --health-retries 5
+          --health-cmd mongosh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
         ports:
           - 27018:27017
 
