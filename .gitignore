@@ -2,5 +2,5 @@ bin
 **/*.wasm
 .idea
 .go-version
-.env
-
+**/.env**
+docker/data
