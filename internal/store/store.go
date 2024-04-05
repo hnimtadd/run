@@ -33,4 +33,10 @@ type (
 		AddEndpointMetric(endpointID string, metrics types.RequestMetric) error
 		GetMetricByEndpointID(endpointID string) (types.RuntimeMetric, error)
 	}
+
+	BlobStore interface {
+		AddDeploymentBlob(*types.Blob) (*types.Blob, error)
+		GetDeploymentBlobByDeploymentID(deploymentID string) (*types.Blob, error)
+		GetBDeploymentBlobByBlobID(blobID string) (*types.Blob, error)
+	}
 )
