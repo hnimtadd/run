@@ -9,16 +9,14 @@ import (
 )
 
 type Deployment struct {
-	Hash string `json:"hash" bson:"hash"`
-	// Deprecated, will move to use types.Blob instead, since we will save it to blob db,
-	// Could use BlobID instead and get blob from blobstored
-	Blob        []byte            `json:"blob" bson:"blob"`
+	ID          uuid.UUID         `json:"id" bson:"_id"`
+	Hash        string            `json:"hash" bson:"hash"` /* Deprecated, this field will move to types.Blob*/
 	BlobID      uuid.UUID         `json:"blobID" bson:"blobID"`
 	CreatedAt   int64             `json:"createdAt" bson:"createdAt"` // unix timestamp
-	ID          uuid.UUID         `json:"id" bson:"_id"`
 	EndpointID  uuid.UUID         `json:"endpointID" bson:"endpointID"`
 	Environment map[string]string `json:"environment" bson:"environment"`
 	Format      LogFormat         `json:"logFormat" bson:"format"`
+	Blob        []byte            `json:"blob" bson:"blob"` /* Deprecated, will move to use types.Blob instead, since we will save it to blob db,  Could use BlobID instead and get blob from blobstored*/
 }
 
 func NewDeployment(endpoint *Endpoint, blob []byte, environment ...map[string]string) (*Deployment, error) {

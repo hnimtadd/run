@@ -16,8 +16,10 @@ type (
 		GetDeploymentByID(deploymentID string) (*types.Deployment, error)
 		GetDeployments() ([]*types.Deployment, error)
 		DeleteDeployment(deploymentID string) error
-
 		GetDeploymentsByEndpointID(endpointID string) ([]*types.Deployment, error)
+
+		CreateBlobMetadata(metadata *types.BlobMetadata) error
+		GetBlobMetadataByDeploymentID(deploymentID string) (*types.BlobMetadata, error)
 	}
 	UpdateEndpointParams struct {
 		Environment map[string]string
@@ -35,8 +37,8 @@ type (
 	}
 
 	BlobStore interface {
-		AddDeploymentBlob(*types.Blob) (*types.Blob, error)
-		GetDeploymentBlobByDeploymentID(deploymentID string) (*types.Blob, error)
-		GetBDeploymentBlobByBlobID(blobID string) (*types.Blob, error)
+		AddDeploymentBlob(metadata *types.BlobMetadata, data []byte) (*types.BlobMetadata, error)
+		GetDeploymentBlobByURI(location string) (*types.BlobObject, error)
+		DeleteDeploymentBlob(localtion string, versionID string) (bool, error)
 	}
 )
