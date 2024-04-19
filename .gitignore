@@ -1,6 +1,8 @@
 bin
 **/*.wasm
 .idea
+.vscode
 .go-version
 **/.env**
 docker/data
+credentials.json
