@@ -25,12 +25,12 @@ jobs:
       - name: Build Wasm
         run: make build_example
 
-      - name: Start-containers
-        run: ENV=ci make container-up
+      - uses: hoverkraft-tech/compose-action@v1.5.1
+        with:
+          compose-file: "./docker/docker-compose.yml"
+        env:
+          MINIO_ROOT_USER: admin
+          MINIO_ROOT_PASSWORD: secret_password
 
       - name: Test
         run: make test
-
-      - name: Stop containers
-        if: always()
-        run: ENV=ci make container-down
