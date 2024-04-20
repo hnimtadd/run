@@ -41,9 +41,9 @@ go-lint:
 	@golangci-lint run  ./...
 
 container-up:
-	@ docker-compose -f ./docker/docker-compose.yml --env-file .env.docker up -d --remove-orphans
+	@ docker-compose -f ./docker/docker-compose.yml --env-file ${ENV}.env.docker up -d --remove-orphans
 
 container-down:
-	@ docker-compose -f ./docker/docker-compose.yml --env-file .env.docker down
+	@ docker-compose -f ./docker/docker-compose.yml --env-file ${ENV}.env.docker down
 
 .PHONY: build-ingress ingress build-api api gen test build_example clean_example go-lint container-up container-down

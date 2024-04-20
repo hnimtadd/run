@@ -26,11 +26,11 @@ jobs:
         run: make build_example
 
       - name: Start-containers
-        run: make container-up
+        run: ENV=ci make container-up
 
       - name: Test
         run: go test ./...
 
       - name: Stop containers
         if: always()
-        run: make container-down
+        run: ENV=ci make container-down
