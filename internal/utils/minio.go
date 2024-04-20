@@ -8,8 +8,7 @@ import (
 )
 
 func CreateBlobObjectName(blob *types.BlobMetadata) string {
-	// return fmt.Sprintf("%v/%v", blob.DeploymentID, blob.Hash)
-	return blob.DeploymentID.String()
+	return fmt.Sprintf("%v/%v", blob.EndpointID.String(), blob.DeploymentID.String())
 }
 
 // GetObjectNameFromLocation returns specific object path after remove location
