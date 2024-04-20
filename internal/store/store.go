@@ -39,6 +39,6 @@ type (
 	BlobStore interface {
 		AddDeploymentBlob(metadata *types.BlobMetadata, data []byte) (*types.BlobMetadata, error)
 		GetDeploymentBlobByURI(location string, versionID ...string) (*types.BlobObject, error)
-		DeleteDeploymentBlob(localtion string, versionID ...string) (bool, error)
+		DeleteDeploymentBlob(location string, versionID ...string) (bool, error)
 	}
 )
