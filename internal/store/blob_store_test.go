@@ -147,11 +147,28 @@ func GetMinioClient(t *testing.T) *minio.Client {
 	require.Nil(t, err)
 	return minioClient
 }
+func DeleteMinioClient() {
+	minioClient = nil
+}
 
 func CleanBucket(t *testing.T) {
 	client := GetMinioClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
+
+	objectCh := client.ListObjects(context.Background(), testBucket, minio.ListObjectsOptions{
+		WithVersions: true,
+		Recursive:    true,
+	})
+
+	for err := range client.RemoveObjects(
+		context.Background(),
+		testBucket,
+		objectCh,
+		minio.RemoveObjectsOptions{}) {
+		require.Nil(t, err)
+	}
 	err := client.RemoveBucket(ctx, testBucket)
 	require.Nil(t, err)
+	DeleteMinioClient()
 }
