@@ -77,6 +77,7 @@ func TestBlobStore_GetDeploymentBlobByURI(t *testing.T) {
 	getBlobMetadata, err := blobStore.GetDeploymentBlobByURI(newBlobMetadata.Location, newBlobMetadata.VersionID)
 	require.Nil(t, err)
 	require.NotNil(t, getBlobMetadata)
+	require.Equal(t, blob, getBlobMetadata.Data)
 
 	// version 2
 	anotherBlob := []byte("new blob")
@@ -91,11 +92,10 @@ func TestBlobStore_GetDeploymentBlobByURI(t *testing.T) {
 	getAnotherBlobMetadata, err := blobStore.GetDeploymentBlobByURI(newAnotherBlobMetadata.Location, newAnotherBlobMetadata.VersionID)
 	require.Nil(t, err)
 	require.NotNil(t, getAnotherBlobMetadata)
+	require.Equal(t, anotherBlob, getAnotherBlobMetadata.Data)
 
 	CleanBucket(t)
 }
-
-// TODO: test this
 
 func TestBlobStore_DeleteDeploymentBlob(t *testing.T) {
 	minioClient := GetMinioClient(t)
@@ -147,6 +147,7 @@ func GetMinioClient(t *testing.T) *minio.Client {
 	require.Nil(t, err)
 	return minioClient
 }
+
 func DeleteMinioClient() {
 	minioClient = nil
 }

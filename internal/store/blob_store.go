@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"time"
 
@@ -58,14 +59,6 @@ func (m *MinioBlobStore) AddDeploymentBlob(blob *types.BlobMetadata, data []byte
 	if err != nil {
 		return nil, err
 	}
-	// if info.ETag != blob.Hash {
-	// 	// check if the uploaded blob was received successfully by serve
-	// 	return nil, errors.Newf(
-	// 		"checksum failed, server receive wrong file, given: %s, got: %s",
-	// 		blob.Hash,
-	// 		info.ETag,
-	// 	)
-	// }
 	blob.Location = info.Location
 	blob.VersionID = info.VersionID
 	fmt.Println("info", info.Key)
@@ -74,7 +67,7 @@ func (m *MinioBlobStore) AddDeploymentBlob(blob *types.BlobMetadata, data []byte
 
 // GetDeploymentBlobByURI implements BlobStore.
 func (m *MinioBlobStore) GetDeploymentBlobByURI(location string, versionID ...string) (*types.BlobObject, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer cancel()
 
 	opts := minio.GetObjectOptions{}
@@ -91,14 +84,23 @@ func (m *MinioBlobStore) GetDeploymentBlobByURI(location string, versionID ...st
 	if err != nil {
 		return nil, err
 	}
+	defer object.Close()
 
 	info, err := object.Stat()
 	if err != nil {
 		return nil, err
 	}
+	blobBuf := new(bytes.Buffer)
+	written, err := io.Copy(blobBuf, object)
+	if err != nil {
+		return nil, err
+	}
+	if written != info.Size {
+		return nil, fmt.Errorf("blobstore: expected to read %v bytes from blob, readed: %v", info.Size, written)
+	}
 
 	return &types.BlobObject{
-		Data:         object,
+		Data:         blobBuf.Bytes(),
 		Etag:         info.ETag,
 		UserMetadata: info.UserMetadata,
 	}, nil
