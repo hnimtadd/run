@@ -7,6 +7,7 @@ import (
 
 	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/internal/types"
+	"github.com/hnimtadd/run/internal/utils"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -22,6 +23,7 @@ var (
 )
 
 func TestBlobStore_AddDeploymentBlob(t *testing.T) {
+	utils.SkipCI(t)
 	minioClient := GetMinioClient(t)
 	blobStore, err := store.NewMinioBlobStore(minioClient, testBucket)
 	require.Nil(t, err)
@@ -52,6 +54,7 @@ func TestBlobStore_AddDeploymentBlob(t *testing.T) {
 }
 
 func TestBlobStore_GetDeploymentBlobByURI(t *testing.T) {
+	utils.SkipCI(t)
 	minioClient := GetMinioClient(t)
 
 	blobStore, err := store.NewMinioBlobStore(minioClient, testBucket)
@@ -98,6 +101,7 @@ func TestBlobStore_GetDeploymentBlobByURI(t *testing.T) {
 }
 
 func TestBlobStore_DeleteDeploymentBlob(t *testing.T) {
+	utils.SkipCI(t)
 	minioClient := GetMinioClient(t)
 	blobStore, err := store.NewMinioBlobStore(minioClient, testBucket)
 	require.Nil(t, err)

@@ -1,7 +1,7 @@
 PKG := github.com/hnimtadd/run
 VERSION := $(shell git describe --always --long --dirty)
-PKG_LIST := $(shell go list ${PKG}/... | grep -v /vendor/)
-GO_FILES := $(shell find . -name '*.go' | grep -v /vendor/)
+PKG_LIST := $(shell go list ${PKG}/... | grep -v /vendor | grep -v /docker)
+
 BIN := ./bin
 BUILD := `git describe --tags --abbrev=8 --dirty --always --long` 
 LDFLAGS=-ldflags "-X=${PKG}/internal/version.Version=$(BUILD)"
