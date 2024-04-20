@@ -16,11 +16,13 @@ import (
 var (
 	EndpointColName   = "endpoints"
 	DeploymentColName = "deployments"
+	BlobColName       = "blobs"
 )
 
 type MongoStore struct {
 	EndpointCol   *mongo.Collection
 	DeploymentCol *mongo.Collection
+	BlobCol       *mongo.Collection
 }
 
 func (m MongoStore) UpdateActiveDeploymentOfEndpoint(endpointID string, deploymentID string) error {
@@ -180,9 +182,39 @@ func (m MongoStore) DeleteDeployment(deploymentID string) error {
 	return nil
 }
 
+func (m *MongoStore) CreateBlobMetadata(metadata *types.BlobMetadata) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	_, err := m.BlobCol.InsertOne(ctx, metadata)
+	return err
+}
+
+func (m *MongoStore) GetBlobMetadataByDeploymentID(deploymentID string) (*types.BlobMetadata, error) {
+	deploymentUID, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	filter := bson.M{"_id": deploymentUID}
+	res := m.BlobCol.FindOne(ctx, filter)
+	if err := res.Err(); err != nil {
+		return nil, err
+	}
+
+	metadata := new(types.BlobMetadata)
+	if err := res.Decode(metadata); err != nil {
+		return nil, err
+	}
+
+	return metadata, nil
+}
+
 func NewMongoStore(db *mongo.Database) (Store, error) {
 	return &MongoStore{
 		DeploymentCol: db.Collection(DeploymentColName),
 		EndpointCol:   db.Collection(EndpointColName),
+		BlobCol:       db.Collection(BlobColName),
 	}, nil
 }

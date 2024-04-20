@@ -27,6 +27,7 @@ type Runtime struct {
 	started      time.Time
 	store        store.Store
 	logStore     store.LogStore
+	blobStore    store.BlobStore
 	cache        store.ModCacher
 	runtime      *runtime.Runtime
 	stdout       *bytes.Buffer
@@ -39,7 +40,6 @@ func (r *Runtime) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *actor.Started:
 		slog.Info("runtime started", "node", "runtime")
-
 		r.started = time.Now()
 
 	case *actor.Stopped:
@@ -62,7 +62,20 @@ func (r *Runtime) Receive(ctx actor.Context) {
 func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
 	deploy, err := r.store.GetDeploymentByID(msg.DeploymentId)
 	if err != nil {
-		return fmt.Errorf("runtime: could not find deployment (%s)", r.deploymentID)
+		slog.Error("runtime: could not find deployment ", "msg", err.Error())
+		return err
+	}
+
+	blobMetadata, err := r.store.GetBlobMetadataByDeploymentID(msg.DeploymentId)
+	if err != nil {
+		slog.Error("cannot get blob information  from store", "msg", err.Error())
+		return err
+	}
+
+	blob, err := r.blobStore.GetDeploymentBlobByURI(blobMetadata.Location, blobMetadata.VersionID)
+	if err != nil {
+		slog.Error("cannot get deployment blob from blobStore", "msg", err.Error())
+		return err
 	}
 
 	r.deploymentID = deploy.ID
@@ -76,13 +89,14 @@ func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
 	args := runtime.Args{
 		Stdout:       r.stdout,
 		DeploymentID: deploy.ID,
-		Blob:         deploy.Blob,
+		Blob:         blob.Data,
 		Engine:       msg.Runtime,
 		Cache:        modCache,
 	}
 
 	run, err := runtime.New(context.Background(), args)
 	if err != nil {
+		slog.Error("failed to create runtime", "msg", err.Error())
 		return err
 	}
 
@@ -174,9 +188,10 @@ func responseError(ctx actor.Context, request *pb.HTTPRequest, code int32, msg s
 func NewRuntime(cfg *RuntimeConfig) actor.Producer {
 	return func() actor.Actor {
 		return &Runtime{
-			store:    cfg.Store,
-			cache:    cfg.Cache,
-			logStore: cfg.LogStore,
+			store:     cfg.Store,
+			cache:     cfg.Cache,
+			logStore:  cfg.LogStore,
+			blobStore: cfg.BlobStore,
 		}
 	}
 }
@@ -184,9 +199,10 @@ func NewRuntime(cfg *RuntimeConfig) actor.Producer {
 var KindRuntime = "kind-runtime"
 
 type RuntimeConfig struct {
-	Store    store.Store
-	LogStore store.LogStore
-	Cache    store.ModCacher
+	Store     store.Store
+	LogStore  store.LogStore
+	BlobStore store.BlobStore
+	Cache     store.ModCacher
 }
 
 func NewRuntimeKind(cfg *RuntimeConfig, opts ...actor.PropsOption) *cluster.Kind {

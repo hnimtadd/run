@@ -19,9 +19,10 @@ import (
 
 type (
 	Server struct {
-		store    store.Store
-		logStore store.LogStore
-		router   *chi.Mux
+		metadataStore store.Store
+		blobStore     store.BlobStore
+		logStore      store.LogStore
+		router        *chi.Mux
 		ServerConfig
 	}
 	ServerConfig struct {
@@ -30,11 +31,12 @@ type (
 	}
 )
 
-func NewServer(store store.Store, logStore store.LogStore, config ServerConfig) *Server {
+func NewServer(store store.Store, logStore store.LogStore, blobStore store.BlobStore, config ServerConfig) *Server {
 	return &Server{
-		store:        store,
-		logStore:     logStore,
-		ServerConfig: config,
+		metadataStore: store,
+		logStore:      logStore,
+		blobStore:     blobStore,
+		ServerConfig:  config,
 	}
 }
 
@@ -76,7 +78,7 @@ func (s *Server) HandleCreateEndpoint(w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 	}
-	if err := s.store.CreateEndpoint(endpoint); err != nil {
+	if err := s.metadataStore.CreateEndpoint(endpoint); err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 	return utils.WriteJSON(w, http.StatusOK, endpoint)
@@ -85,12 +87,12 @@ func (s *Server) HandleCreateEndpoint(w http.ResponseWriter, r *http.Request) er
 func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
 	slog.Info("receive get endpoint by Id request", "endpointID", endpointID)
-	endpoint, err := s.store.GetEndpointByID(endpointID)
+	endpoint, err := s.metadataStore.GetEndpointByID(endpointID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	deployments, err := s.store.GetDeploymentsByEndpointID(endpointID)
+	deployments, err := s.metadataStore.GetDeploymentsByEndpointID(endpointID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
@@ -99,7 +101,7 @@ func (s *Server) HandleGetEndpointByID(w http.ResponseWriter, r *http.Request) e
 }
 
 func (s *Server) HandleGetEndpoints(w http.ResponseWriter, _ *http.Request) error {
-	endpoints, err := s.store.GetEndpoints()
+	endpoints, err := s.metadataStore.GetEndpoints()
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
@@ -109,7 +111,7 @@ func (s *Server) HandleGetEndpoints(w http.ResponseWriter, _ *http.Request) erro
 
 func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
-	endpoint, err := s.store.GetEndpointByID(endpointID)
+	endpoint, err := s.metadataStore.GetEndpointByID(endpointID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
@@ -141,13 +143,29 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	// TODO: fix, currently, if user need to update new environment value to the request, we must extract it from the body.
 	deployment, _ := types.NewDeployment(endpoint, buf.Bytes(), endpoint.Environment)
 
-	if err := s.store.CreateDeployment(deployment); err != nil {
+	blobMetadata, _ := types.NewRawBlobMetadata(deployment, buf.Bytes())
+
+	_, err = s.blobStore.AddDeploymentBlob(blobMetadata, buf.Bytes())
+	if err != nil {
+		slog.Info("failed to store deployment blob", "msg", err.Error(), "node", "api server")
+		return utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to create deployment",
+		})
+	}
+
+	if err := s.metadataStore.CreateDeployment(deployment); err != nil {
 		slog.Info("cannot create deployment in store", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
-	if err := s.store.UpdateActiveDeploymentOfEndpoint(endpoint.ID.String(), deployment.ID.String()); err != nil {
+	if err := s.metadataStore.UpdateActiveDeploymentOfEndpoint(endpoint.ID.String(), deployment.ID.String()); err != nil {
 		slog.Info("cannot update active deployment for given endpoint", "msg", err.Error())
+		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
+	}
+
+	err = s.metadataStore.CreateBlobMetadata(blobMetadata)
+	if err != nil {
+		slog.Info("cannot create blob metadata", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 
@@ -157,11 +175,11 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.Request) error {
 	endpointID := chi.URLParam(r, "id")
 
-	if _, err := s.store.GetEndpointByID(endpointID); err != nil {
+	if _, err := s.metadataStore.GetEndpointByID(endpointID); err != nil {
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
-	deployments, err := s.store.GetDeploymentsByEndpointID(endpointID)
+	deployments, err := s.metadataStore.GetDeploymentsByEndpointID(endpointID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
@@ -175,7 +193,7 @@ func (s *Server) HandleGetDeploymentsOfEndpoint(w http.ResponseWriter, r *http.R
 func (s *Server) HandleGetDeployment(w http.ResponseWriter, r *http.Request) error {
 	deploymentID := chi.URLParam(r, "id")
 
-	deployment, err := s.store.GetDeploymentByID(deploymentID)
+	deployment, err := s.metadataStore.GetDeploymentByID(deploymentID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
@@ -203,7 +221,7 @@ func FromInternalRequestLog(log *types.RequestLog) map[string]any {
 
 func (s *Server) HandleGetLogOfDeployment(w http.ResponseWriter, r *http.Request) error {
 	deploymentID := chi.URLParam(r, "id")
-	_, err := s.store.GetDeploymentByID(deploymentID)
+	_, err := s.metadataStore.GetDeploymentByID(deploymentID)
 	if err != nil {
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
@@ -224,7 +242,7 @@ func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
 	deploymentID := r.URL.Query().Get("deploymentID")
 	slog.Info("rollback for", "deploymentID", deploymentID, "endpoint", endpointID)
 
-	endpoint, err := s.store.GetEndpointByID(endpointID)
+	endpoint, err := s.metadataStore.GetEndpointByID(endpointID)
 	if err != nil {
 		slog.Info("cannot get endpoint", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "endpoint not existed"})
@@ -234,7 +252,7 @@ func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
 		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "cannot rollback on empty endpoint"})
 	}
 
-	deployments, err := s.store.GetDeploymentsByEndpointID(endpointID)
+	deployments, err := s.metadataStore.GetDeploymentsByEndpointID(endpointID)
 	if err != nil {
 		slog.Info("cannot get deployments", "msg", err.Error())
 		return utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "cannot get deployments of given endpoint"})
@@ -250,16 +268,31 @@ func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
 			currentDeploymentUID = deployments[len(deployments)-2].ID
 		}
 
-		if err := s.store.DeleteDeployment(latestDeploymentUID.String()); err != nil {
+		blobMetadata, err := s.metadataStore.GetBlobMetadataByDeploymentID(latestDeploymentUID.String())
+		if err != nil {
+			slog.Info("cannot get blob metadata", "endpoint", endpointID, "deployment", latestDeploymentUID.String(), "msg", err.Error())
+			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+		}
+		deleted, err := s.blobStore.DeleteDeploymentBlob(blobMetadata.Location, blobMetadata.VersionID)
+		if err != nil {
+			slog.Info("cannot remove blob from blob storage", "endpoint", endpointID, "deployment", latestDeploymentUID.String(), "msg", err.Error())
+			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+		}
+
+		if !deleted {
+			slog.Info("delete blob failed", "endpoint", endpointID, "deployment", latestDeploymentUID.String())
+		}
+
+		if err := s.metadataStore.DeleteDeployment(latestDeploymentUID.String()); err != nil {
 			slog.Info("cannot delete current deployment of endpoint", "endpoint", endpointID, "deployment", latestDeploymentUID.String(), "msg", err.Error())
 			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 		}
-		if err := s.store.UpdateActiveDeploymentOfEndpoint(endpointID, currentDeploymentUID.String()); err != nil {
+		if err := s.metadataStore.UpdateActiveDeploymentOfEndpoint(endpointID, currentDeploymentUID.String()); err != nil {
 			slog.Info("cannot update active deployment of endpoint", "endpoint", endpointID, "deployment", currentDeploymentUID.String(), "msg", err.Error())
 			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 		}
 	default:
-		_, err := s.store.GetDeploymentByID(deploymentID)
+		_, err := s.metadataStore.GetDeploymentByID(deploymentID)
 		if err != nil {
 			slog.Info("cannot get given deploymentID", "endpoint", endpointID, "deployment", deploymentID, "msg", err.Error())
 			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
@@ -286,13 +319,29 @@ func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
 
 		for idx := sinceIdx; idx < len(deployments); idx++ {
 			deploymentUID := deployments[idx].ID.String()
-			if err := s.store.DeleteDeployment(deploymentUID); err != nil {
+			blobMetadata, err := s.metadataStore.GetBlobMetadataByDeploymentID(deploymentUID)
+			if err != nil {
+				slog.Info("cannot get blob metadata", "endpoint", endpointID, "deployment", deploymentUID, "msg", err.Error())
+				return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+			}
+			deleted, err := s.blobStore.DeleteDeploymentBlob(blobMetadata.Location, blobMetadata.VersionID)
+			if err != nil {
+				slog.Info("cannot remove blob from blob storage", "endpoint", endpointID, "deployment", deploymentUID, "msg", err.Error())
+				return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
+			}
+
+			if !deleted {
+				slog.Info("delete blob failed", "endpoint", endpointID, "deployment", deploymentUID)
+			}
+
+			if err := s.metadataStore.DeleteDeployment(deploymentUID); err != nil {
 				slog.Info("cannot delete given deployment of endpoint", "endpoint", endpointID, "deployment", deploymentUID, "msg", err.Error())
 				return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 			}
 		}
+
 		// rollback to specific deployment
-		if err := s.store.UpdateActiveDeploymentOfEndpoint(endpointID, deploymentID); err != nil {
+		if err := s.metadataStore.UpdateActiveDeploymentOfEndpoint(endpointID, deploymentID); err != nil {
 			slog.Info("cannot update active deployment of endpoint", "endpoint", endpointID, "deployment", deploymentID, "msg", err.Error())
 			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 		}

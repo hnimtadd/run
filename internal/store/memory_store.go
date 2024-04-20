@@ -19,6 +19,7 @@ type MemoryStore struct {
 	mu        sync.RWMutex
 	deploys   map[uuid.UUID]*types.Deployment
 	endpoints map[uuid.UUID]*types.Endpoint
+	blobs     map[uuid.UUID]*types.BlobMetadata
 	logs      map[uuid.UUID]map[uuid.UUID]*types.RequestLog // map deploymentID with request_id and request_log.go
 }
 
@@ -263,6 +264,26 @@ func (m *MemoryStore) GetDeploymentsByEndpointID(endpointID string) ([]*types.De
 	m.mu.Unlock()
 
 	return deployments, nil
+}
+
+// CreateBlobMetadata implements Store.
+func (m *MemoryStore) CreateBlobMetadata(metadata *types.BlobMetadata) error {
+	m.mu.Lock()
+	m.blobs[metadata.DeploymentID] = metadata
+	m.mu.Unlock()
+	return nil
+}
+
+// GetBlobMetadataByDeploymentID implements Store.
+func (m *MemoryStore) GetBlobMetadataByDeploymentID(deploymentID string) (*types.BlobMetadata, error) {
+	deploymentUID, err := uuid.Parse(deploymentID)
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	blobMetadata := m.blobs[deploymentUID]
+	m.mu.Unlock()
+	return blobMetadata, nil
 }
 
 func NewMemoryStore() *MemoryStore {

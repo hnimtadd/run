@@ -16,6 +16,8 @@ import (
 	"github.com/hnimtadd/run/internal/actrs"
 	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/internal/version"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/asynkron/protoactor-go/cluster"
@@ -68,6 +70,30 @@ func main() {
 	// TODO: implement logging store and cache store, currently use in-memory store.
 	inMemoryStore := store.NewMemoryStore()
 	inMemoryCache := store.NewMemoryModCacher()
+	// TODO: integrate blob store
+	creds := credentials.NewStaticV4(
+		os.Getenv("MINIO_USERNAME"),
+		os.Getenv("MINIO_PASSWORD"),
+		"",
+	)
+	minioClient, err := minio.New(
+		os.Getenv("MINIO_URL"),
+		&minio.Options{
+			Creds:  creds,
+			Secure: false,
+		},
+	)
+	if err != nil {
+		slog.Error("cannot init minio client", "msg", err.Error())
+	}
+
+	blobStore, err := store.NewMinioBlobStore(
+		minioClient,
+		os.Getenv("MINIO_BUCKET"),
+	)
+	if err != nil {
+		slog.Error("cannot init blob store", "msg", err.Error())
+	}
 
 	system := actor.NewActorSystem()
 	defer system.Shutdown()
@@ -93,9 +119,10 @@ func main() {
 			actrs.NewRuntimeManagerKind(),
 			actrs.NewRuntimeKind(
 				&actrs.RuntimeConfig{
-					Store:    st,
-					Cache:    inMemoryCache,
-					LogStore: inMemoryStore,
+					Store:     st,
+					Cache:     inMemoryCache,
+					LogStore:  inMemoryStore,
+					BlobStore: blobStore,
 				}),
 			actrs.NewMetricAggregatorKind(
 				&actrs.MetricAggregatorConfig{

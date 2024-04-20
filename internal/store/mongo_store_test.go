@@ -8,6 +8,7 @@ import (
 
 	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/internal/types"
+	"github.com/hnimtadd/run/internal/utils"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,7 @@ import (
 
 var (
 	testColEndpoint   = "endpoints"
+	testColBlob       = "blobs"
 	testColDeployment = "deployments"
 	testDatabase      = "test-raptor"
 	mongoClient       *mongo.Client
@@ -24,7 +26,7 @@ var (
 )
 
 func TestMongoStore_CreateDeployment(t *testing.T) {
-	fmt.Println(mongoURL)
+	utils.SkipCI(t)
 	db := getMongoDatabase(t)
 	endpointCol := db.Collection(testColEndpoint)
 	deploymentCol := db.Collection(testColDeployment)
@@ -45,6 +47,7 @@ func TestMongoStore_CreateDeployment(t *testing.T) {
 }
 
 func TestMongoStore_CreateEndpoint(t *testing.T) {
+	utils.SkipCI(t)
 	db := getMongoDatabase(t)
 	endpointCol := db.Collection(testColEndpoint)
 	deploymentCol := db.Collection(testColDeployment)
@@ -63,6 +66,7 @@ func TestMongoStore_CreateEndpoint(t *testing.T) {
 }
 
 func TestMongoStore_GetDeploymentByEndpointID(t *testing.T) {
+	utils.SkipCI(t)
 	db := getMongoDatabase(t)
 	endpointCol := db.Collection(testColEndpoint)
 	deploymentCol := db.Collection(testColDeployment)
@@ -92,6 +96,7 @@ func TestMongoStore_GetDeploymentByEndpointID(t *testing.T) {
 }
 
 func TestMongoStore_GetDeploymentByID(t *testing.T) {
+	utils.SkipCI(t)
 	db := getMongoDatabase(t)
 	endpointCol := db.Collection(testColEndpoint)
 	deploymentCol := db.Collection(testColDeployment)
@@ -123,6 +128,7 @@ func TestMongoStore_GetDeploymentByID(t *testing.T) {
 //}
 
 func TestMongoStore_GetEndpointByID(t *testing.T) {
+	utils.SkipCI(t)
 	db := getMongoDatabase(t)
 	endpointCol := db.Collection(testColEndpoint)
 	deploymentCol := db.Collection(testColDeployment)
@@ -160,6 +166,7 @@ func TestMongoStore_GetEndpointByID(t *testing.T) {
 }
 
 func TestMongoStore_GetEndpoints(t *testing.T) {
+	utils.SkipCI(t)
 	db := getMongoDatabase(t)
 	endpointCol := db.Collection(testColEndpoint)
 	deploymentCol := db.Collection(testColDeployment)
@@ -185,6 +192,7 @@ func TestMongoStore_GetEndpoints(t *testing.T) {
 }
 
 func TestMongoStore_UpdateActiveDeploymentOfEndpoint(t *testing.T) {
+	utils.SkipCI(t)
 	db := getMongoDatabase(t)
 	endpointCol := db.Collection(testColEndpoint)
 	deploymentCol := db.Collection(testColDeployment)
@@ -213,6 +221,70 @@ func TestMongoStore_UpdateActiveDeploymentOfEndpoint(t *testing.T) {
 	require.NotNil(t, newEndpoint)
 
 	require.Equal(t, deployment.ID.String(), newEndpoint.ActiveDeploymentID.String())
+}
+
+func TestMongoStore_CreateBlobMetadata(t *testing.T) {
+	utils.SkipCI(t)
+	db := getMongoDatabase(t)
+	blobCol := db.Collection(testColBlob)
+	defer cleanCollection(t, blobCol)
+
+	mongoStore := store.MongoStore{
+		BlobCol: blobCol,
+	}
+	endpoint, err := types.NewEndpoint("endpoint-2", "go", nil)
+	require.Nil(t, err)
+	require.NotNil(t, endpoint)
+	blob := []byte("hello world")
+	deployment, err := types.NewDeployment(endpoint, blob, nil)
+	require.Nil(t, err)
+	require.NotNil(t, deployment)
+	blobMetadata, err := types.NewRawBlobMetadata(deployment, blob)
+	require.Nil(t, err)
+	require.NotNil(t, blobMetadata)
+
+	err = mongoStore.CreateBlobMetadata(blobMetadata)
+	require.Nil(t, err)
+
+	// Duplicated
+	err = mongoStore.CreateBlobMetadata(blobMetadata)
+	require.NotNil(t, err)
+}
+
+func TestMongoStore_GetBlobMetadataByDeploymentID(t *testing.T) {
+	utils.SkipCI(t)
+	db := getMongoDatabase(t)
+	blobCol := db.Collection(testColBlob)
+	defer cleanCollection(t, blobCol)
+
+	mongoStore := store.MongoStore{
+		BlobCol: blobCol,
+	}
+	endpoint, err := types.NewEndpoint("endpoint-2", "go", nil)
+	require.Nil(t, err)
+	require.NotNil(t, endpoint)
+	blob := []byte("hello world")
+
+	deployment, err := types.NewDeployment(endpoint, blob, nil)
+	require.Nil(t, err)
+	require.NotNil(t, deployment)
+
+	blobMetadata, err := types.NewRawBlobMetadata(deployment, blob)
+	require.Nil(t, err)
+	require.NotNil(t, blobMetadata)
+
+	failedBlobMetadata, err := mongoStore.GetBlobMetadataByDeploymentID(deployment.ID.String())
+	require.NotNil(t, err)
+	require.Nil(t, failedBlobMetadata)
+
+	err = mongoStore.CreateBlobMetadata(blobMetadata)
+	require.Nil(t, err)
+
+	successBlobMetadata, err := mongoStore.GetBlobMetadataByDeploymentID(deployment.ID.String())
+	require.Nil(t, err)
+	require.NotNil(t, successBlobMetadata)
+
+	require.Equal(t, *blobMetadata, *successBlobMetadata)
 }
 
 func getMongoDatabase(t *testing.T) *mongo.Database {

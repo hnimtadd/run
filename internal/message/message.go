@@ -2,6 +2,7 @@ package message
 
 import (
 	"github.com/hnimtadd/run/internal/types"
+
 	"github.com/hnimtadd/run/pb/v1"
 )
 

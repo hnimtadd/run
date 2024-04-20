@@ -17,6 +17,8 @@ import (
 	"github.com/hnimtadd/run/internal/version"
 
 	"github.com/joho/godotenv"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -62,12 +64,26 @@ func main() {
 	// TODO: implement logging store, currently use in-memory store, use in-memory store make no sense here.
 	inMemoryStore := store.NewMemoryStore()
 
+	// TODO: integrate blob store
+	creds := credentials.NewStaticV4(os.Getenv("MINIO_USERNAME"), os.Getenv("MINIO_PASSWORD"), "")
+	minioClient, err := minio.New(os.Getenv("MINIO_URL"), &minio.Options{
+		Creds:  creds,
+		Secure: false,
+	})
+	if err != nil {
+		slog.Error("cannot init minio client", "msg", err.Error())
+	}
+
+	blobStore, err := store.NewMinioBlobStore(minioClient, os.Getenv("MINIO_BUCKET"))
+	if err != nil {
+		slog.Error("cannot init blob store", "msg", err.Error())
+	}
+
 	serverConfig := api.ServerConfig{
 		Addr:    fmt.Sprintf(":%v", os.Getenv("API_ADDR")),
 		Version: version.Version,
 	}
-
-	apiServer := api.NewServer(st, inMemoryStore, serverConfig)
+	apiServer := api.NewServer(st, inMemoryStore, blobStore, serverConfig)
 
 	go func() {
 		panic(apiServer.ListenAndServe())
