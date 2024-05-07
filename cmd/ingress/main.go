@@ -67,10 +67,12 @@ func main() {
 		slog.Error("cannot init store with given mongo client", "msg", err.Error())
 	}
 
-	// TODO: implement logging store and cache store, currently use in-memory store.
-	inMemoryStore := store.NewMemoryStore()
+	logStore, err := store.NewMongoLogStore(db)
+	if err != nil {
+		slog.Error("failed to init log store", "msg", err.Error())
+	}
+
 	inMemoryCache := store.NewMemoryModCacher()
-	// TODO: integrate blob store
 	creds := credentials.NewStaticV4(
 		os.Getenv("MINIO_USERNAME"),
 		os.Getenv("MINIO_PASSWORD"),
@@ -121,7 +123,7 @@ func main() {
 				&actrs.RuntimeConfig{
 					Store:     st,
 					Cache:     inMemoryCache,
-					LogStore:  inMemoryStore,
+					LogStore:  logStore,
 					BlobStore: blobStore,
 				}),
 			actrs.NewMetricAggregatorKind(

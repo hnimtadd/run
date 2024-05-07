@@ -61,10 +61,11 @@ func main() {
 		slog.Error("cannot init store with given mongo client", "msg", err.Error())
 	}
 
-	// TODO: implement logging store, currently use in-memory store, use in-memory store make no sense here.
-	inMemoryStore := store.NewMemoryStore()
+	logStore, err := store.NewMongoLogStore(db)
+	if err != nil {
+		slog.Error("cannot init mongo log store", "msg", err)
+	}
 
-	// TODO: integrate blob store
 	creds := credentials.NewStaticV4(os.Getenv("MINIO_USERNAME"), os.Getenv("MINIO_PASSWORD"), "")
 	minioClient, err := minio.New(os.Getenv("MINIO_URL"), &minio.Options{
 		Creds:  creds,
@@ -83,7 +84,7 @@ func main() {
 		Addr:    fmt.Sprintf(":%v", os.Getenv("API_ADDR")),
 		Version: version.Version,
 	}
-	apiServer := api.NewServer(st, inMemoryStore, blobStore, serverConfig)
+	apiServer := api.NewServer(st, logStore, blobStore, serverConfig)
 
 	go func() {
 		panic(apiServer.ListenAndServe())

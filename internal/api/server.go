@@ -196,6 +196,7 @@ func (s *Server) HandleGetDeployment(w http.ResponseWriter, r *http.Request) err
 
 	deployment, err := s.metadataStore.GetDeploymentByID(deploymentID)
 	if err != nil {
+		slog.Info("deployment not existed", "msg", err)
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
 
@@ -224,10 +225,13 @@ func (s *Server) HandleGetLogOfDeployment(w http.ResponseWriter, r *http.Request
 	deploymentID := chi.URLParam(r, "id")
 	_, err := s.metadataStore.GetDeploymentByID(deploymentID)
 	if err != nil {
+		slog.Info("deployment not existed", "msg", err)
 		return utils.WriteJSON(w, http.StatusNotFound, utils.MakeErrorResponse(err))
 	}
+
 	logs, err := s.logStore.GetLogOfDeployment(deploymentID)
 	if err != nil {
+		slog.Info("log of deployment not existed", "msg", err)
 		return utils.WriteJSON(w, http.StatusInternalServerError, utils.MakeErrorResponse(err))
 	}
 	var rspLogs []map[string]any
@@ -347,7 +351,9 @@ func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
 			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 		}
 	}
-	return utils.WriteJSON(w, http.StatusOK, nil)
+	return utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"msg": "rollback operation successfully",
+	})
 }
 
 func handleStatus(w http.ResponseWriter, _ *http.Request) error {
