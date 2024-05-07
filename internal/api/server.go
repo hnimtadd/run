@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// TODO: blob metadata related apis
 type (
 	Server struct {
 		metadataStore store.Store

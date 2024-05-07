@@ -24,6 +24,7 @@ func NewMongoLogStore(db *mongo.Database) (LogStore, error) {
 
 // AppendLog implements LogStore.
 func (m *MongoLogStore) AppendLog(log *types.RequestLog) error {
+	log.CreatedAt = time.Now().Unix()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	_, err := m.LogCol.InsertOne(ctx, log)
@@ -40,9 +41,11 @@ func (m *MongoLogStore) GetLogByRequestID(requestID string) (*types.RequestLog, 
 	defer cancel()
 
 	filter := bson.M{"_id": requestUID}
-	res := new(types.RequestLog)
-	err = m.LogCol.FindOne(ctx, filter).Decode(res)
-	return res, err
+	var res types.RequestLog
+	if err := m.LogCol.FindOne(ctx, filter).Decode(&res); err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 // GetLogOfDeployment implements LogStore.

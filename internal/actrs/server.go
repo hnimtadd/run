@@ -54,7 +54,7 @@ func (s *Server) Receive(ctx actor.Context) {
 		s.Stop()
 
 	case *message.RequestMessage:
-		// TODO: at here there is no guarantee
+		// at here there is no guarantee
 		// that the runtime could be
 		// initialized in time.
 		// In that case, we could spaw the runtime
