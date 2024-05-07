@@ -3,3 +3,5 @@ plugins:
   - plugin: go
     opt: paths=source_relative
     out: ../pb/
+  - plugin: buf.build/bufbuild/es:v1.9.0
+    out: ../protobuf
