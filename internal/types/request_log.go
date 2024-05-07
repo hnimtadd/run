@@ -9,10 +9,10 @@ import (
 type LogFormat byte
 
 type RequestLog struct {
-	RequestID    uuid.UUID
-	DeploymentID uuid.UUID
-	Contents     []string
-	CreatedAt    int64 // unix timestamp
+	RequestID    uuid.UUID `bson:"_id"`
+	DeploymentID uuid.UUID `bson:"deployment_id"`
+	Contents     []string  `bson:"contents"`
+	CreatedAt    int64     `bson:"created_at"` // unix timestamp
 }
 
 func NewRequestLog(deploymentID uuid.UUID, requestID uuid.UUID, logs []string) *RequestLog {

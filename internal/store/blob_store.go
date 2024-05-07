@@ -60,21 +60,16 @@ func (m *MinioBlobStore) AddDeploymentBlob(blob *types.BlobMetadata, data []byte
 		return nil, err
 	}
 	blob.Location = info.Location
-	blob.VersionID = info.VersionID
 	fmt.Println("info", info.Key)
 	return blob, nil
 }
 
 // GetDeploymentBlobByURI implements BlobStore.
-func (m *MinioBlobStore) GetDeploymentBlobByURI(location string, versionID ...string) (*types.BlobObject, error) {
+func (m *MinioBlobStore) GetDeploymentBlobByURI(location string) (*types.BlobObject, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer cancel()
 
 	opts := minio.GetObjectOptions{}
-	if len(versionID) == 1 {
-		opts.VersionID = versionID[0]
-	}
-
 	fmt.Println(location)
 	objectName, err := utils.GetObjectNameFromLocation(location)
 	if err != nil {
@@ -106,13 +101,10 @@ func (m *MinioBlobStore) GetDeploymentBlobByURI(location string, versionID ...st
 	}, nil
 }
 
-func (m *MinioBlobStore) DeleteDeploymentBlob(location string, versionID ...string) (bool, error) {
+func (m *MinioBlobStore) DeleteDeploymentBlob(location string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	opts := minio.StatObjectOptions{}
-	if len(versionID) == 1 {
-		opts.VersionID = versionID[0]
-	}
 	objectName, err := utils.GetObjectNameFromLocation(location)
 	if err != nil {
 		return false, err
@@ -122,9 +114,6 @@ func (m *MinioBlobStore) DeleteDeploymentBlob(location string, versionID ...stri
 		return false, err
 	}
 	removeOpts := minio.RemoveObjectOptions{}
-	if len(versionID) == 1 {
-		opts.VersionID = versionID[0]
-	}
 
 	err = m.client.RemoveObject(ctx, m.bucketName, objectName, removeOpts)
 	return true, err

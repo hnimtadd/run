@@ -72,7 +72,7 @@ func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
 		return err
 	}
 
-	blob, err := r.blobStore.GetDeploymentBlobByURI(blobMetadata.Location, blobMetadata.VersionID)
+	blob, err := r.blobStore.GetDeploymentBlobByURI(blobMetadata.Location)
 	if err != nil {
 		slog.Error("cannot get deployment blob from blobStore", "msg", err.Error())
 		return err
