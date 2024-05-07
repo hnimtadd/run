@@ -19,7 +19,7 @@ import (
 )
 
 func TestRuntime_InvokeGoCode(t *testing.T) {
-	b, err := os.ReadFile("./../_testdata/helloworld.wasm")
+	b, err := os.ReadFile("./../_testdata/go/helloworld.wasm")
 	require.Nil(t, err)
 
 	req := &pb.HTTPRequest{
@@ -125,4 +125,23 @@ func TestRuntime_InvokeGoCodeExample(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, 1, len(lines))
 	require.Equal(t, lines[0], "enter index")
+}
+
+func TestRuntime_InvokeJSCode(t *testing.T) {
+	b, err := os.ReadFile("./../_testdata/js/example.wasm")
+	require.Nil(t, err)
+
+	out := &bytes.Buffer{}
+	args := runtime.Args{
+		Stdout:       out,
+		DeploymentID: uuid.New(),
+		Blob:         b,
+		Engine:       "js",
+		Cache:        wazero.NewCompilationCache(),
+	}
+	r, err := runtime.New(context.Background(), args)
+	require.Nil(t, err)
+	require.Nil(t, r.Invoke(nil, nil))
+
+	fmt.Println(out.String())
 }
