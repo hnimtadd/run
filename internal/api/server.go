@@ -274,7 +274,7 @@ func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
 			slog.Info("cannot get blob metadata", "endpoint", endpointID, "deployment", latestDeploymentUID.String(), "msg", err.Error())
 			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 		}
-		deleted, err := s.blobStore.DeleteDeploymentBlob(blobMetadata.Location, blobMetadata.VersionID)
+		deleted, err := s.blobStore.DeleteDeploymentBlob(blobMetadata.Location)
 		if err != nil {
 			slog.Info("cannot remove blob from blob storage", "endpoint", endpointID, "deployment", latestDeploymentUID.String(), "msg", err.Error())
 			return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
@@ -325,7 +325,7 @@ func (s *Server) HandleRollback(w http.ResponseWriter, r *http.Request) error {
 				slog.Info("cannot get blob metadata", "endpoint", endpointID, "deployment", deploymentUID, "msg", err.Error())
 				return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))
 			}
-			deleted, err := s.blobStore.DeleteDeploymentBlob(blobMetadata.Location, blobMetadata.VersionID)
+			deleted, err := s.blobStore.DeleteDeploymentBlob(blobMetadata.Location)
 			if err != nil {
 				slog.Info("cannot remove blob from blob storage", "endpoint", endpointID, "deployment", deploymentUID, "msg", err.Error())
 				return utils.WriteJSON(w, http.StatusBadRequest, utils.MakeErrorResponse(err))

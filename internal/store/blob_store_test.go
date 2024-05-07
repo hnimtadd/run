@@ -49,7 +49,6 @@ func TestBlobStore_AddDeploymentBlob(t *testing.T) {
 	require.Equal(t, blobMetadata.CreatedAt, newBlobMetadata.CreatedAt)
 
 	require.NotEmpty(t, blobMetadata.Location)
-	require.NotEmpty(t, blobMetadata.VersionID)
 	CleanBucket(t)
 }
 
@@ -77,7 +76,7 @@ func TestBlobStore_GetDeploymentBlobByURI(t *testing.T) {
 	require.Nil(t, err)
 	require.NotNil(t, newBlobMetadata)
 
-	getBlobMetadata, err := blobStore.GetDeploymentBlobByURI(newBlobMetadata.Location, newBlobMetadata.VersionID)
+	getBlobMetadata, err := blobStore.GetDeploymentBlobByURI(newBlobMetadata.Location)
 	require.Nil(t, err)
 	require.NotNil(t, getBlobMetadata)
 	require.Equal(t, blob, getBlobMetadata.Data)
@@ -92,7 +91,7 @@ func TestBlobStore_GetDeploymentBlobByURI(t *testing.T) {
 	require.Nil(t, err)
 	require.NotNil(t, newAnotherBlobMetadata)
 
-	getAnotherBlobMetadata, err := blobStore.GetDeploymentBlobByURI(newAnotherBlobMetadata.Location, newAnotherBlobMetadata.VersionID)
+	getAnotherBlobMetadata, err := blobStore.GetDeploymentBlobByURI(newAnotherBlobMetadata.Location)
 	require.Nil(t, err)
 	require.NotNil(t, getAnotherBlobMetadata)
 	require.Equal(t, anotherBlob, getAnotherBlobMetadata.Data)
