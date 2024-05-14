@@ -9,3 +9,7 @@ credentials.json
 .DS_Store
 **/node_modules
 tools
+.venv
+
+bundle
+dist
