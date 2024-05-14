@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"os"
 
+	pb "github.com/hnimtadd/run/pbs/gopb/v1"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/hnimtadd/run/pb/v1"
 )
 
 type responseWriter struct {
@@ -69,6 +68,7 @@ func Handle(h http.Handler) {
 	for key, value := range w.header {
 		rsp.Header[key] = &pb.HeaderFields{Fields: value}
 	}
+
 	rsp.Body = w.buffer.Bytes()
 	rsp.Code = int32(w.code)
 	bufBytes, err := proto.Marshal(rsp)
