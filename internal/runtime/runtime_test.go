@@ -10,7 +10,7 @@ import (
 
 	"github.com/hnimtadd/run/internal/runtime"
 	"github.com/hnimtadd/run/internal/shared"
-	"github.com/hnimtadd/run/pb/v1"
+	pb "github.com/hnimtadd/run/pbs/gopb/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
