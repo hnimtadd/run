@@ -18,10 +18,11 @@ ingress: build-ingress
 build-api:
 	@ go build ${LDFLAGS} -o ${BIN}/api ./cmd/api/main.go
 
-api: build-api
+api: buildapi
 	@ ${BIN}/api
 
 test: 
+	@ go clean -testcache
 	@ go test --short ${PKG_LIST}
 
 vet:
@@ -31,19 +32,19 @@ gen:
 	@ cd proto && buf generate
 
 clean_example:
-	@rm **.wasm
+	@rm **/*.wasm
 
 build_example:
 	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/helloworld.wasm internal/_testdata/helloworld.go
 	@GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go
 
-go-lint:
+golint:
 	@golangci-lint run  ./...
 
-container-up:
+containerup:
 	@ docker-compose -f ./docker/docker-compose.yml --env-file ${ENV}.env.docker up -d --remove-orphans
 
-container-down:
+containerdown:
 	@ docker-compose -f ./docker/docker-compose.yml --env-file ${ENV}.env.docker down
 
 .PHONY: build-ingress ingress build-api api gen test build_example clean_example go-lint container-up container-down
