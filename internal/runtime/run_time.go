@@ -69,3 +69,7 @@ func (r *Runtime) Invoke(stdin io.Reader, env map[string]string, args ...string)
 func (r *Runtime) Close() error {
 	return r.runtime.Close(r.ctx)
 }
+
+func (r *Runtime) GetRuntime() string {
+	return r.engine
+}

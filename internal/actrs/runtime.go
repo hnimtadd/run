@@ -3,6 +3,7 @@ package actrs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -110,6 +111,23 @@ func (r *Runtime) Initialize(msg *pb.HTTPRequest) error {
 }
 
 func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
+	if req.Runtime != r.runtime.GetRuntime() {
+		responseError(ctx, req, http.StatusBadRequest, "invalid runtime found in request", req.Id)
+		return
+	}
+	switch req.Runtime {
+	case "python":
+		r.HandlePythonRuntime(ctx, req)
+		return
+	case "go":
+		r.HandleGoRuntime(ctx, req)
+		return
+	default:
+		responseError(ctx, req, http.StatusBadRequest, fmt.Sprintf("this runtime (%s) is not support", req.Runtime), req.Id)
+		return
+	}
+}
+func (r *Runtime) HandleGoRuntime(ctx actor.Context, req *pb.HTTPRequest) {
 	if r.deploymentID != uuid.MustParse(req.DeploymentId) {
 		responseError(ctx, req, http.StatusInternalServerError, "deploymentID must match with runtime deployment ID", req.Id)
 		return
@@ -163,6 +181,99 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 
 	responseHTTPWithMetrics(ctx, req, rsp, &requestMetric)
 	r.stdout.Reset()
+}
+
+func (r *Runtime) HandlePythonRuntime(ctx actor.Context, req *pb.HTTPRequest) {
+	// currently, we could not use protobuf with python sdk, so this handlers try to parse the request into json object, then pass it into the sandbox, the response then will be used to construct the proto response
+	if r.deploymentID != uuid.MustParse(req.DeploymentId) {
+		responseError(ctx, req, http.StatusInternalServerError, "deploymentID must match with runtime deployment ID", req.Id)
+		return
+	}
+
+	start := time.Now()
+
+	// TODO: fix this json, currently we directly parse it into json
+	jsonReq := map[string]any{
+		"body":          req.GetBody(),
+		"method":        req.GetMethod(),
+		"url":           req.GetUrl(),
+		"endpoint_id":   req.GetEndpointId(),
+		"env":           req.GetEnv(),
+		"header":        req.GetRuntime(),
+		"runtime":       req.GetRuntime(),
+		"deployment_id": req.GetDeploymentId(),
+		"id":            req.GetId(),
+	}
+
+	bufBytes, err := json.Marshal(jsonReq)
+	// bufBytes, err := proto.Marshal(req)
+	if err != nil {
+		responseError(ctx, req, http.StatusInternalServerError, "cannot marshal request", req.Id)
+		return
+	}
+
+	if err := r.runtime.Invoke(bytes.NewReader(bufBytes), req.GetEnv()); err != nil {
+		// request_log.go error
+		responseError(ctx, req, http.StatusInternalServerError, "invoke error: "+err.Error(), req.Id)
+		return
+	}
+
+	logs, body, err := shared.ParseStdout(r.stdout)
+	if err != nil {
+		slog.Error("cannot parse output ", "request", req.Id, "msg", err.Error())
+		responseError(ctx, req, http.StatusInternalServerError, "cannot parse output "+err.Error(), req.Id)
+		return
+	}
+
+	type sandboxResponse struct {
+		Body      []byte              `json:"body"`
+		Code      int                 `json:"code"`
+		RequestID string              `json:"id"`
+		Header    map[string][]string `json:"header"`
+	}
+
+	jsonRes := new(sandboxResponse)
+
+	if err := json.Unmarshal(body, jsonRes); err != nil {
+		slog.Error("cannot unmarshal output ", "request", req.Id, "msg", err.Error())
+		responseError(ctx, req, http.StatusInternalServerError, "cannot unmarshal output "+err.Error(), req.Id)
+		return
+	}
+
+	protoHeaders := map[string]*pb.HeaderFields{}
+	for key, header := range jsonRes.Header {
+		protoHeaders[key] = &pb.HeaderFields{
+			Fields: header,
+		}
+	}
+
+	rsp := &pb.HTTPResponse{
+		Body:      jsonRes.Body,
+		Code:      int32(jsonRes.Code),
+		RequestId: req.Id,
+		Header:    protoHeaders,
+	}
+
+	// TODO: runtime metrics, write request_log.go to metric server
+	lines, err := shared.ParseLog(logs)
+	if err == nil {
+		requestUID, _ := uuid.Parse(req.Id)
+		reqLogs := types.NewRequestLog(r.deploymentID, requestUID, lines)
+		if err := r.logStore.AppendLog(reqLogs); err != nil {
+			slog.Error("failed to add log to server", "request", req.Id, "msg", err.Error())
+		}
+	}
+	duration := time.Since(start)
+	// Calculate metric for current request
+	requestMetric := types.CreateRequestMetric(req.Id, int(rsp.Code), duration)
+
+	// save request metric to store
+	fmt.Println(requestMetric)
+
+	// update metric of this deployment
+	responseHTTPWithMetrics(ctx, req, rsp, &requestMetric)
+	r.stdout.Reset()
+
 }
 
 func responseHTTPWithMetrics(ctx actor.Context, request *pb.HTTPRequest, response *pb.HTTPResponse, metric *types.RequestMetric) {

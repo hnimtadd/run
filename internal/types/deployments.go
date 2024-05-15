@@ -1,8 +1,6 @@
 package types
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,12 +14,9 @@ type Deployment struct {
 	EndpointID  uuid.UUID         `json:"endpointID" bson:"endpointID"`
 	Environment map[string]string `json:"environment" bson:"environment"`
 	Format      LogFormat         `json:"logFormat" bson:"format"`
-	Blob        []byte            `json:"blob" bson:"blob"` /* Deprecated, will move to use types.Blob instead, since we will save it to blob db,  Could use BlobID instead and get blob from blobstored*/
 }
 
-func NewDeployment(endpoint *Endpoint, blob []byte, environment ...map[string]string) (*Deployment, error) {
-	md5hash := md5.Sum(blob)
-	deploymentHash := hex.EncodeToString(md5hash[:])
+func NewDeployment(endpoint *Endpoint, environment ...map[string]string) (*Deployment, error) {
 	deploymentID := uuid.New()
 
 	var env map[string]string
@@ -31,8 +26,6 @@ func NewDeployment(endpoint *Endpoint, blob []byte, environment ...map[string]st
 
 	deployment := &Deployment{
 		ID:          deploymentID,
-		Blob:        blob,
-		Hash:        deploymentHash,
 		EndpointID:  endpoint.ID,
 		Environment: env,
 		CreatedAt:   time.Now().Unix(),

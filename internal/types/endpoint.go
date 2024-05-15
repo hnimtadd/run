@@ -9,7 +9,8 @@ import (
 )
 
 var validRuntime = map[string]bool{
-	"go": true,
+	"go":     true,
+	"python": true,
 }
 
 func _isValidRuntime(runtime string) bool {
@@ -28,6 +29,9 @@ type Endpoint struct {
 func NewEndpoint(name string, runtime string, environment map[string]string) (*Endpoint, error) {
 	if !_isValidRuntime(runtime) {
 		return nil, errors.ErrInvalidRuntime
+	}
+	if environment == nil {
+		environment = make(map[string]string)
 	}
 
 	endpointID := uuid.New()
