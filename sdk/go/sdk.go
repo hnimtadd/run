@@ -78,8 +78,7 @@ func Handle(h http.Handler) {
 	_, _ = os.Stdout.Write(bufBytes)
 
 	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, uint32(len(bufBytes)))
-	// binary.LittleEndian.PutUint32(buf[0:4], uint32(w.code))
-	// binary.LittleEndian.PutUint32(buf[4:8], uint32(w.buffer.Len()))
+	binary.LittleEndian.PutUint16(buf, uint16(len(bufBytes)))
+
 	_, _ = os.Stdout.Write(buf)
 }

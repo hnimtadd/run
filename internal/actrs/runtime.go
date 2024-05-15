@@ -127,6 +127,7 @@ func (r *Runtime) Handle(ctx actor.Context, req *pb.HTTPRequest) {
 		return
 	}
 }
+
 func (r *Runtime) HandleGoRuntime(ctx actor.Context, req *pb.HTTPRequest) {
 	if r.deploymentID != uuid.MustParse(req.DeploymentId) {
 		responseError(ctx, req, http.StatusInternalServerError, "deploymentID must match with runtime deployment ID", req.Id)
@@ -273,7 +274,6 @@ func (r *Runtime) HandlePythonRuntime(ctx actor.Context, req *pb.HTTPRequest) {
 	// update metric of this deployment
 	responseHTTPWithMetrics(ctx, req, rsp, &requestMetric)
 	r.stdout.Reset()
-
 }
 
 func responseHTTPWithMetrics(ctx actor.Context, request *pb.HTTPRequest, response *pb.HTTPResponse, metric *types.RequestMetric) {

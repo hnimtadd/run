@@ -23,11 +23,10 @@ func ParseStdout(r io.Reader) (logs []byte, body []byte, err error) {
 		return
 	}
 	magicStart := outLen - magicLen
-
-	bufferLen := int(binary.LittleEndian.Uint32(bufBytes[magicStart:]))
+	bufferLen := int(binary.LittleEndian.Uint16(bufBytes[magicStart:]))
 
 	if bufferLen > outLen-magicLen {
-		err = fmt.Errorf("expect buffer with len %d, available: %d", bufferLen, len(bufBytes)-magicLen)
+		err = fmt.Errorf("expect buffer with len %d, available: %d", bufferLen, outLen-magicLen)
 		return
 	}
 
