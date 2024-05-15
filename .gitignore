@@ -13,3 +13,5 @@ tools
 
 bundle
 dist
+
+.pylintrc

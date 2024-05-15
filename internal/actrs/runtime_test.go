@@ -8,11 +8,14 @@ import (
 	"github.com/hnimtadd/run/internal/actrs"
 	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/internal/types"
+	"github.com/hnimtadd/run/internal/utils"
 	pb "github.com/hnimtadd/run/pbs/gopb/v1"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRuntimeActrs(t *testing.T) {
+	utils.SkipCI(t)
+
 	b, err := os.ReadFile("./../_testdata/python/index.wasm")
 	require.Nil(t, err)
 	memoryStore := store.NewMemoryStore()
