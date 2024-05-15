@@ -236,7 +236,7 @@ func TestMongoStore_CreateBlobMetadata(t *testing.T) {
 	require.Nil(t, err)
 	require.NotNil(t, endpoint)
 	blob := []byte("hello world")
-	deployment, err := types.NewDeployment(endpoint, blob, nil)
+	deployment, err := types.NewDeployment(endpoint, nil)
 	require.Nil(t, err)
 	require.NotNil(t, deployment)
 	blobMetadata, err := types.NewRawBlobMetadata(deployment, blob)
@@ -265,7 +265,7 @@ func TestMongoStore_GetBlobMetadataByDeploymentID(t *testing.T) {
 	require.NotNil(t, endpoint)
 	blob := []byte("hello world")
 
-	deployment, err := types.NewDeployment(endpoint, blob, nil)
+	deployment, err := types.NewDeployment(endpoint, nil)
 	require.Nil(t, err)
 	require.NotNil(t, deployment)
 

@@ -9,19 +9,20 @@ LDFLAGS=-ldflags "-X=${PKG}/internal/version.Version=$(BUILD)"
 clean:
 	-@rm ${BIN}/*
 
-build-ingress:
+buildingress:
 	@ go build ${LDFLAGS} -o ${BIN}/ingress ./cmd/ingress/main.go
 
-ingress: build-ingress
+ingress: buildingress
 	@ ${BIN}/ingress
 
-build-api:
+buildapi:
 	@ go build ${LDFLAGS} -o ${BIN}/api ./cmd/api/main.go
 
-api: build-api
+api: buildapi
 	@ ${BIN}/api
 
-test: 
+test:  build_example
+	@ go clean -testcache
 	@ go test --short ${PKG_LIST}
 
 vet:
@@ -31,19 +32,22 @@ gen:
 	@ cd proto && buf generate
 
 clean_example:
-	@rm **.wasm
+	@rm **/*.wasm
 
 build_example:
-	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/helloworld.wasm internal/_testdata/helloworld.go
+	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/go/helloworld.wasm internal/_testdata/go/helloworld.go
 	@GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go
 
-go-lint:
+build_py_example:
+	sh ./scripts/build_py_example.sh
+
+golint:
 	@golangci-lint run  ./...
 
-container-up:
+containerup:
 	@ docker-compose -f ./docker/docker-compose.yml --env-file ${ENV}.env.docker up -d --remove-orphans
 
-container-down:
+containerdown:
 	@ docker-compose -f ./docker/docker-compose.yml --env-file ${ENV}.env.docker down
 
-.PHONY: build-ingress ingress build-api api gen test build_example clean_example go-lint container-up container-down
+.PHONY: buildingress ingress buildapi api gen test build_example clean_example golint containerup containerdown build_py_example

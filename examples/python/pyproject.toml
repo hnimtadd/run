@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "run-example"
+version = "0.1.0"
+description = ""
+authors = ["Dat Nguyen <minhdat15012002@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "run" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+run-sdk = { path = "../../sdk/python", develop = true }
+
+
+[tool.poetry.group.dev.dependencies]
+componentize-py = "^0.13.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,6 +1,6 @@
 package utils
 
-import "github.com/hnimtadd/run/pb/v1"
+import pb "github.com/hnimtadd/run/pbs/gopb/v1"
 
 func MakeProtoRequest(requestID string) *pb.HTTPRequest {
 	return &pb.HTTPRequest{

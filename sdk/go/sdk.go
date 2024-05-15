@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"os"
 
+	pb "github.com/hnimtadd/run/pbs/gopb/v1"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/hnimtadd/run/pb/v1"
 )
 
 type responseWriter struct {
@@ -61,7 +60,7 @@ func Handle(h http.Handler) {
 	}
 
 	h.ServeHTTP(w, r)
-	_, _ = io.Copy(os.Stdout, os.Stderr)
+	// _, _ = io.Copy(os.Stdout, os.Stderr)
 
 	// write response information to sandbox stdout, using for check valid response
 	rsp := new(pb.HTTPResponse)
@@ -69,17 +68,25 @@ func Handle(h http.Handler) {
 	for key, value := range w.header {
 		rsp.Header[key] = &pb.HeaderFields{Fields: value}
 	}
+
 	rsp.Body = w.buffer.Bytes()
 	rsp.Code = int32(w.code)
 	bufBytes, err := proto.Marshal(rsp)
 	if err != nil {
 		log.Fatalf("sdk: cannot handle marshal response")
 	}
-	_, _ = os.Stdout.Write(bufBytes)
 
-	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, uint32(len(bufBytes)))
-	// binary.LittleEndian.PutUint32(buf[0:4], uint32(w.code))
-	// binary.LittleEndian.PutUint32(buf[4:8], uint32(w.buffer.Len()))
+	written, err := os.Stdout.Write(bufBytes)
+	if err != nil {
+		log.Fatalf("sdk: cannot handle write response")
+	}
+
+	if written != len(bufBytes) {
+		log.Fatalf("sdk: given response with length: %d, written: %d", len(bufBytes), written)
+	}
+
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, uint16(len(bufBytes)))
+
 	_, _ = os.Stdout.Write(buf)
 }

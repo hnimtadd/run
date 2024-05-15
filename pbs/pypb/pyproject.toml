@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "run-pb"
+version = "0.1.0"
+description = ""
+authors = ["Dat Nguyen <minhdat15012002@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "run" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+protobuf = "^5.26.1"
+types-protobuf = "^5.26.0.20240422"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

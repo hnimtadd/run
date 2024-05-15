@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-var magicLen = 4
+var magicLen = 2 // len of uint16
 
 // ParseStdout returns logs, body, status, err, body is bytes of pb.HTTPResponse
 func ParseStdout(r io.Reader) (logs []byte, body []byte, err error) {
@@ -23,11 +23,10 @@ func ParseStdout(r io.Reader) (logs []byte, body []byte, err error) {
 		return
 	}
 	magicStart := outLen - magicLen
-
-	bufferLen := int(binary.LittleEndian.Uint32(bufBytes[magicStart:]))
+	bufferLen := int(binary.LittleEndian.Uint16(bufBytes[magicStart:]))
 
 	if bufferLen > outLen-magicLen {
-		err = fmt.Errorf("expect buffer with len %d, available: %d", bufferLen, len(bufBytes)-magicLen)
+		err = fmt.Errorf("expect buffer with len %d, available: %d", bufferLen, outLen-magicLen)
 		return
 	}
 

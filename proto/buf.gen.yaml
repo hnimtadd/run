@@ -1,5 +1,13 @@
 version: v1
+managed:
+  enabled: true
 plugins:
   - plugin: go
     opt: paths=source_relative
-    out: ../pb/
+    out: ../pbs/gopb/
+  - plugin: buf.build/protocolbuffers/pyi:v26.1
+    out: ../pbs/pypb/run/pb
+  # - plugin: buf.build/grpc/python:v1.63.0
+  #   out: ../pbs/pypb/run/pb
+  - plugin: buf.build/protocolbuffers/python:v26.1
+    out: ../pbs/pypb/run/pb

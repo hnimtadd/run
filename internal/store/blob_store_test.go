@@ -33,7 +33,7 @@ func TestBlobStore_AddDeploymentBlob(t *testing.T) {
 	require.NotNil(t, endpoint)
 	blob := []byte("hello world")
 
-	deployment, err := types.NewDeployment(endpoint, blob, nil)
+	deployment, err := types.NewDeployment(endpoint, nil)
 	require.Nil(t, err)
 	require.NotNil(t, deployment)
 
@@ -64,7 +64,7 @@ func TestBlobStore_GetDeploymentBlobByURI(t *testing.T) {
 	require.NotNil(t, endpoint)
 	blob := []byte("hello world")
 
-	deployment, err := types.NewDeployment(endpoint, blob, nil)
+	deployment, err := types.NewDeployment(endpoint, nil)
 	require.Nil(t, err)
 	require.NotNil(t, deployment)
 
@@ -110,7 +110,7 @@ func TestBlobStore_DeleteDeploymentBlob(t *testing.T) {
 	require.NotNil(t, endpoint)
 	blob := []byte("hello world")
 
-	deployment, err := types.NewDeployment(endpoint, blob, nil)
+	deployment, err := types.NewDeployment(endpoint, nil)
 	require.Nil(t, err)
 	require.NotNil(t, deployment)
 

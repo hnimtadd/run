@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hnimtadd/run/sdk"
+	sdk "github.com/hnimtadd/run/sdk/go"
 )
 
 func handle(w http.ResponseWriter, _ *http.Request) {

@@ -142,7 +142,7 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 	}
 
 	// TODO: fix, currently, if user need to update new environment value to the request, we must extract it from the body.
-	deployment, _ := types.NewDeployment(endpoint, buf.Bytes(), endpoint.Environment)
+	deployment, _ := types.NewDeployment(endpoint, endpoint.Environment)
 
 	blobMetadata, _ := types.NewRawBlobMetadata(deployment, buf.Bytes())
 
@@ -153,6 +153,7 @@ func (s *Server) HandlePostDeployment(w http.ResponseWriter, r *http.Request) er
 			"error": "failed to create deployment",
 		})
 	}
+	deployment.Hash = blobMetadata.Hash
 
 	if err := s.metadataStore.CreateDeployment(deployment); err != nil {
 		slog.Info("cannot create deployment in store", "msg", err.Error())

@@ -15,7 +15,7 @@ import (
 	"github.com/hnimtadd/run/internal/store"
 	"github.com/hnimtadd/run/internal/types"
 	"github.com/hnimtadd/run/internal/utils"
-	"github.com/hnimtadd/run/pb/v1"
+	pb "github.com/hnimtadd/run/pbs/gopb/v1"
 
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/asynkron/protoactor-go/cluster"

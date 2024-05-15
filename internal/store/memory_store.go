@@ -11,16 +11,62 @@ import (
 )
 
 var (
-	_ LogStore = &MemoryStore{}
-	_ Store    = &MemoryStore{}
+	_ LogStore  = &MemoryStore{}
+	_ Store     = &MemoryStore{}
+	_ BlobStore = &MemoryStore{}
 )
 
 type MemoryStore struct {
-	mu        sync.RWMutex
-	deploys   map[uuid.UUID]*types.Deployment
-	endpoints map[uuid.UUID]*types.Endpoint
-	blobs     map[uuid.UUID]*types.BlobMetadata
-	logs      map[uuid.UUID]map[uuid.UUID]*types.RequestLog // map deploymentID with request_id and request_log.go
+	mu          sync.RWMutex
+	deploys     map[uuid.UUID]*types.Deployment
+	endpoints   map[uuid.UUID]*types.Endpoint
+	blobs       map[uuid.UUID]*types.BlobMetadata
+	logs        map[uuid.UUID]map[uuid.UUID]*types.RequestLog // map deploymentID with request_id and request_log.go
+	blobObjects map[uuid.UUID][]byte
+}
+
+// AddDeploymentBlob implements BlobStore.
+func (m *MemoryStore) AddDeploymentBlob(metadata *types.BlobMetadata, data []byte) (*types.BlobMetadata, error) {
+	m.mu.RLock()
+	m.blobObjects[metadata.DeploymentID] = data
+	m.mu.RUnlock()
+	metadata.Location = metadata.DeploymentID.String()
+	return metadata, nil
+}
+
+// DeleteDeploymentBlob implements BlobStore.
+func (m *MemoryStore) DeleteDeploymentBlob(location string) (bool, error) {
+	deploymentUID, err := uuid.Parse(location)
+	if err != nil {
+		return false, err
+	}
+	m.mu.Lock()
+	_, ok := m.blobObjects[deploymentUID]
+	m.mu.Unlock()
+	if !ok {
+		return false, nil
+	}
+	m.mu.RLock()
+	delete(m.blobObjects, deploymentUID)
+	m.mu.RUnlock()
+	return true, nil
+}
+
+// GetDeploymentBlobByURI implements BlobStore.
+func (m *MemoryStore) GetDeploymentBlobByURI(location string) (*types.BlobObject, error) {
+	deploymentUID, err := uuid.Parse(location)
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	blob, ok := m.blobObjects[deploymentUID]
+	m.mu.Unlock()
+	if !ok {
+		return nil, nil
+	}
+	return &types.BlobObject{
+		Data: blob,
+	}, nil
 }
 
 func (m *MemoryStore) DeleteDeployment(deploymentID string) error {
@@ -288,8 +334,10 @@ func (m *MemoryStore) GetBlobMetadataByDeploymentID(deploymentID string) (*types
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		deploys:   make(map[uuid.UUID]*types.Deployment),
-		endpoints: make(map[uuid.UUID]*types.Endpoint),
-		logs:      make(map[uuid.UUID]map[uuid.UUID]*types.RequestLog),
+		deploys:     make(map[uuid.UUID]*types.Deployment),
+		endpoints:   make(map[uuid.UUID]*types.Endpoint),
+		logs:        make(map[uuid.UUID]map[uuid.UUID]*types.RequestLog),
+		blobs:       make(map[uuid.UUID]*types.BlobMetadata),
+		blobObjects: make(map[uuid.UUID][]byte),
 	}
 }
