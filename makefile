@@ -9,10 +9,10 @@ LDFLAGS=-ldflags "-X=${PKG}/internal/version.Version=$(BUILD)"
 clean:
 	-@rm ${BIN}/*
 
-build-ingress:
+buildingress:
 	@ go build ${LDFLAGS} -o ${BIN}/ingress ./cmd/ingress/main.go
 
-ingress: build-ingress
+ingress: buildingress
 	@ ${BIN}/ingress
 
 buildapi:
@@ -35,8 +35,10 @@ clean_example:
 	@rm **/*.wasm
 
 build_example:
-	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/helloworld.wasm internal/_testdata/helloworld.go
+	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/helloworld.wasm ./internal/_testdata/go/helloworld.go
 	@GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go
+
+build_py_example:
 	sh ./scripts/build_py_example.sh
 
 golint:
@@ -48,4 +50,4 @@ containerup:
 containerdown:
 	@ docker-compose -f ./docker/docker-compose.yml --env-file ${ENV}.env.docker down
 
-.PHONY: build-ingress ingress build-api api gen test build_example clean_example go-lint container-up container-down
+.PHONY: buildingress ingress buildapi api gen test build_example clean_example golint containerup containerdown build_py_example
