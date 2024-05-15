@@ -48,6 +48,7 @@ func TestRuntime_InvokeGoCode(t *testing.T) {
 
 	rsp := new(pb.HTTPResponse)
 	require.Nil(t, proto.Unmarshal(body, rsp))
+	require.NotNil(t, rsp)
 
 	require.Equal(t, http.StatusOK, int(rsp.Code))
 	require.Equal(t, "Hello world!", string(rsp.Body))

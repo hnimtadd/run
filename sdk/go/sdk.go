@@ -60,7 +60,7 @@ func Handle(h http.Handler) {
 	}
 
 	h.ServeHTTP(w, r)
-	_, _ = io.Copy(os.Stdout, os.Stderr)
+	// _, _ = io.Copy(os.Stdout, os.Stderr)
 
 	// write response information to sandbox stdout, using for check valid response
 	rsp := new(pb.HTTPResponse)
@@ -75,9 +75,17 @@ func Handle(h http.Handler) {
 	if err != nil {
 		log.Fatalf("sdk: cannot handle marshal response")
 	}
-	_, _ = os.Stdout.Write(bufBytes)
 
-	buf := make([]byte, 4)
+	written, err := os.Stdout.Write(bufBytes)
+	if err != nil {
+		log.Fatalf("sdk: cannot handle write response")
+	}
+
+	if written != len(bufBytes) {
+		log.Fatalf("sdk: given response with length: %d, written: %d", len(bufBytes), written)
+	}
+
+	buf := make([]byte, 2)
 	binary.LittleEndian.PutUint16(buf, uint16(len(bufBytes)))
 
 	_, _ = os.Stdout.Write(buf)
