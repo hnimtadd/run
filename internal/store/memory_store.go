@@ -67,7 +67,6 @@ func (m *MemoryStore) GetDeploymentBlobByURI(location string) (*types.BlobObject
 	return &types.BlobObject{
 		Data: blob,
 	}, nil
-
 }
 
 func (m *MemoryStore) DeleteDeployment(deploymentID string) error {
