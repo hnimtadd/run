@@ -15,7 +15,7 @@ build-ingress:
 ingress: build-ingress
 	@ ${BIN}/ingress
 
-build-api:
+buildapi:
 	@ go build ${LDFLAGS} -o ${BIN}/api ./cmd/api/main.go
 
 api: buildapi
@@ -37,6 +37,7 @@ clean_example:
 build_example:
 	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/helloworld.wasm internal/_testdata/helloworld.go
 	@GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go
+	sh ./scripts/build_py_example.sh
 
 golint:
 	@golangci-lint run  ./...

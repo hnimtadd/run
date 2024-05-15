@@ -5,4 +5,7 @@ cd examples/python &&
 	poetry run pip install --upgrade -t build/bundle build/dist/*.whl &&
 	cd build/bundle &&
 	py2wasm -o ../../index.wasm run/lambda_handler/handler.py &&
-	cd ../../../../../../
+	cd ../../../../ && 
+	cp examples/python/index.wasm internal/_testdata/python/
+
+
