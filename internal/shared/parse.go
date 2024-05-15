@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-var magicLen = 4
+var magicLen = 2 // len of uint16
 
 // ParseStdout returns logs, body, status, err, body is bytes of pb.HTTPResponse
 func ParseStdout(r io.Reader) (logs []byte, body []byte, err error) {
