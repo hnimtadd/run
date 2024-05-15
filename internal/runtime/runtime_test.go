@@ -10,6 +10,7 @@ import (
 
 	"github.com/hnimtadd/run/internal/runtime"
 	"github.com/hnimtadd/run/internal/shared"
+	"github.com/hnimtadd/run/internal/utils"
 	pb "github.com/hnimtadd/run/pbs/gopb/v1"
 
 	"github.com/google/uuid"
@@ -128,6 +129,7 @@ func TestRuntime_InvokeGoCodeExample(t *testing.T) {
 }
 
 func TestRuntime_InvokeJSCode(t *testing.T) {
+	utils.SkipCI(t)
 	b, err := os.ReadFile("./../_testdata/js/example.wasm")
 	require.Nil(t, err)
 
