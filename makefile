@@ -21,7 +21,7 @@ buildapi:
 api: buildapi
 	@ ${BIN}/api
 
-test: 
+test:  build_example
 	@ go clean -testcache
 	@ go test --short ${PKG_LIST}
 
@@ -35,7 +35,7 @@ clean_example:
 	@rm **/*.wasm
 
 build_example:
-	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/helloworld.wasm ./internal/_testdata/go/helloworld.go
+	@GOOS=wasip1 GOARCH=wasm go build -o internal/_testdata/go/helloworld.wasm internal/_testdata/go/helloworld.go
 	@GOOS=wasip1 GOARCH=wasm go build -o examples/go/example.wasm examples/go/example.go
 
 build_py_example:
