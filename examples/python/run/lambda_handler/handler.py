@@ -4,7 +4,6 @@ from run.sdk.types.http_request import HTTPRequest
 
 
 def handler(req: HTTPRequest) -> HTTPResponse:
-    print("hello, this is a log", flush=True)
     print("receive request", req, flush=True)
     return HTTPResponse(
         Body="hello from the index pages",
