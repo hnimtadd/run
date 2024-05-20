@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   main:
-    name: Go test 
+    name: Go test
     runs-on: ubuntu-20.04
 
     steps:

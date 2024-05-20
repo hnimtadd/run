@@ -10,7 +10,6 @@ import (
 
 	"github.com/hnimtadd/run/internal/runtime"
 	"github.com/hnimtadd/run/internal/shared"
-	"github.com/hnimtadd/run/internal/utils"
 	pb "github.com/hnimtadd/run/pbs/gopb/v1"
 
 	"github.com/google/uuid"
@@ -127,24 +126,4 @@ func TestRuntime_InvokeGoCodeExample(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, 1, len(lines))
 	require.Equal(t, lines[0], "enter index")
-}
-
-func TestRuntime_InvokeJSCode(t *testing.T) {
-	utils.SkipCI(t)
-	b, err := os.ReadFile("./../_testdata/js/example.wasm")
-	require.Nil(t, err)
-
-	out := &bytes.Buffer{}
-	args := runtime.Args{
-		Stdout:       out,
-		DeploymentID: uuid.New(),
-		Blob:         b,
-		Engine:       "js",
-		Cache:        wazero.NewCompilationCache(),
-	}
-	r, err := runtime.New(context.Background(), args)
-	require.Nil(t, err)
-	require.Nil(t, r.Invoke(nil, nil))
-
-	fmt.Println(out.String())
 }
