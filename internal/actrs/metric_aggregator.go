@@ -30,10 +30,10 @@ func (m *MetricAggregator) Receive(ctx actor.Context) {
 		slog.Info("received cluster init message", "node", "metricAggregator")
 	case *message.MetricMessage:
 		slog.Info("hello from handle metric message", "msg", msg)
-		// if err := m.HandleMetricMessage(msg); err != nil {
-		// 	// we could retries
-		// 	slog.Info("cannoot handle new metric message")
-		// }
+		if err := m.HandleMetricMessage(msg); err != nil {
+			// we could retries
+			slog.Info("cannoot handle new metric message")
+		}
 	default:
 		slog.Info("message type not support", "node", "metricAggregator", "msg", msg)
 	}
@@ -44,9 +44,11 @@ func (m *MetricAggregator) HandleMetricMessage(msg *message.MetricMessage) error
 	if err != nil {
 		return err
 	}
+
 	if err := m.store.AddEndpointMetric(deployment.EndpointID.String(), msg.Metric); err != nil {
 		return err
 	}
+
 	return nil
 }
 
