@@ -78,7 +78,6 @@ func (s *Server) Receive(ctx actor.Context) {
 			responseCh <- rsp
 			delete(s.responses, rsp.RequestId)
 		}
-		// append metric here
 		if msg.MetricMessage != nil {
 			ctx.Send(s.metricAggregatorPID, msg.MetricMessage)
 		}

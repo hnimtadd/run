@@ -39,6 +39,12 @@ func (m *MetricAggregator) Receive(ctx actor.Context) {
 	}
 }
 
+/*
+This method is intend to handle the metric message from the runtime
+First we need to get the deployment from the metadata store
+Then we calculate the metric and add it to the metric store
+TODO: use some metric aggregation tool such as prometheus, elastic search
+*/
 func (m *MetricAggregator) HandleMetricMessage(msg *message.MetricMessage) error {
 	deployment, err := m.metadataStore.GetDeploymentByID(msg.DeploymentID)
 	if err != nil {

@@ -25,16 +25,17 @@ import (
 )
 
 type Runtime struct {
-	Started    time.Time
-	Store      store.Store
-	LogStore   store.LogStore
-	BlobStore  store.BlobStore
-	Cache      store.ModCacher
-	Runtime    *runtime.Runtime
-	StdOut     *bytes.Buffer
-	ManagerPID *actor.PID
-	Deployment uuid.UUID
-	_format    types.LogFormat
+	Started     time.Time
+	Store       store.Store
+	LogStore    store.LogStore
+	BlobStore   store.BlobStore
+	MetricStore store.MetricStore
+	Cache       store.ModCacher
+	Runtime     *runtime.Runtime
+	StdOut      *bytes.Buffer
+	ManagerPID  *actor.PID
+	Deployment  uuid.UUID
+	_format     types.LogFormat
 }
 
 func (r *Runtime) Receive(ctx actor.Context) {
@@ -175,9 +176,6 @@ func (r *Runtime) HandleGoRuntime(ctx actor.Context, req *pb.HTTPRequest) {
 	duration := time.Since(start)
 	// Calculate metric for current request
 	requestMetric := types.CreateRequestMetric(req.Id, int(rsp.Code), duration)
-
-	// save request metric to store
-	fmt.Println(requestMetric)
 
 	// update metric of this deployment
 
